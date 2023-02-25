@@ -88,9 +88,9 @@ export async function ddsToPng({ isNormal, ddsFile, outDir, size }: DdsToPngOpti
       format: 'rgba',
       reconstructZ: true, // normal map has only RG channels. Z must be reconstructed
       invertY: true, // invert Y to fix bump direction
-    }).catch(() => {
+    }).catch((err) => {
       if (!fs.existsSync(pngFile)) {
-        logger.warn('failed', ddsFile, '->', pngFile)
+        logger.warn('texconv failed', ddsFile, err)
       }
     })
   }
@@ -98,15 +98,15 @@ export async function ddsToPng({ isNormal, ddsFile, outDir, size }: DdsToPngOpti
     ...options,
   })
     .catch((err) => {
-      logger.warn('retry with rgba format', err)
+      logger.warn('retry with rgba format', ddsFile, err)
       return texconv({
         ...options,
         format: 'rgba',
       })
     })
-    .catch(() => {
+    .catch((err) => {
       if (!fs.existsSync(pngFile)) {
-        logger.warn('failed', ddsFile, '->', pngFile)
+        logger.warn('texconv failed', ddsFile, err)
       }
     })
 }
