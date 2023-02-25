@@ -10,60 +10,44 @@ export interface RunTasksOptions<K extends TaskName> {
   tasks: Array<TaskArgs<K>>,
 }
 
-export async function runTasks<K extends TaskName>({ threads, taskName, tasks }: RunTasksOptions<K>) {
-  const runner = getRunner(threads)
-  let count = 0
+export async function runTasks<K extends TaskName>(options: RunTasksOptions<K>) {
+  if (options.threads) {
+    return runThreaded(options)
+  }
+  return runSerial(options)
+}
+
+async function runSerial<K extends TaskName>({ taskName, tasks }: RunTasksOptions<K>) {
+  for (const args of tasks) {
+    await WORKER_TASKS[taskName](args as any).catch((err) => logger.error(err))
+  }
+}
+
+function runThreaded<K extends TaskName>({ threads, taskName, tasks }: RunTasksOptions<K>) {
   const limit = tasks.length
+  let count = 0
 
-  const bar = threads ? new SingleBar({}, Presets.shades_classic) : null
-  bar?.start(limit, 0)
+  const bar = new SingleBar({}, Presets.shades_classic)
+  const runner = workerpool.pool(path.join(__dirname, 'worker.js'), {
+    maxWorkers: threads,
+    workerType: 'thread',
+  })
 
-  return new Promise<void>(async (resolve) => {
+  bar.start(limit, 0)
+  return new Promise<void>((resolve) => {
     for (const args of tasks) {
-      await runner
+      runner
         .exec(taskName, [args])
         .catch((err) => logger.error(err))
         .then(() => {
           count += 1
-          bar?.increment()
+          bar.increment()
           if (count >= limit) {
-            bar?.stop()
+            bar.stop()
             runner.terminate()
             resolve()
           }
         })
     }
   })
-}
-
-interface Runner {
-  exec: (name: string, tasks: any[]) => Promise<void>
-  terminate: () => void
-}
-
-function getRunner(threads: number) {
-  if (threads > 0) {
-    return getThreadRunner(threads)
-  }
-  return getSerialRunner()
-}
-
-function getThreadRunner(numWorkers: number): Runner {
-  const pool = workerpool.pool(path.join(__dirname, 'worker.js'), {
-    maxWorkers: numWorkers,
-    workerType: 'thread',
-  })
-  return {
-    exec: async (key, args) => pool.exec(key, args),
-    terminate: () => pool.terminate()
-  }
-}
-
-function getSerialRunner(): Runner {
-  return {
-    exec: async (key, args) => WORKER_TASKS[key](...args),
-    terminate: () => {
-      // noop
-    }
-  }
 }
