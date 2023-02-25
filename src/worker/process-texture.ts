@@ -5,9 +5,10 @@ import { copyDdsFile, ddsToPng } from "../file-formats/dds/converter"
 
 export type ProcessTextureOptions = Pick<TransformContext, 'sourceRoot' | 'targetRoot' | 'update'> & {
   texture: string
+  texSize?: number
 }
 
-export async function processTexture({ sourceRoot, targetRoot, texture, update }: ProcessTextureOptions) {
+export async function processTexture({ sourceRoot, targetRoot, texture, texSize, update }: ProcessTextureOptions) {
   if (fs.existsSync(path.join(targetRoot, texture)) && !update) {
     return
   }
@@ -17,10 +18,12 @@ export async function processTexture({ sourceRoot, targetRoot, texture, update }
   })
 
   for (const file of files) {
+    const basename = path.basename(file, path.extname(file))
     await ddsToPng({
       ddsFile: file,
       outDir: path.dirname(file),
-      isNormal: path.basename(file, path.extname(file)).endsWith('_ddna') // !!! does not include the _ddna.a.dds files !!!
+      isNormal: basename.endsWith('_ddna') || basename.endsWith('_ddn'), // !!! does not include the _ddna.a.dds files !!!
+      size: texSize
     })
   }
 }
