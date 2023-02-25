@@ -160,7 +160,6 @@ export async function collectAssets({
     }
   }
 
-  logger.debug('Assets', assets.size)
   return Array.from(assets.values())
 }
 
@@ -202,7 +201,8 @@ export async function collectTextures({ sourceRoot, assets }: { sourceRoot: stri
 }
 
 export async function collectModels({ assets }: { sourceRoot: string; assets: ModelAsset[] }) {
-  return uniqBy(assets, (it) => it.model).map(({ model, material }) => {
+  // TODO: check if model/material pairs are actually unique
+  return uniqBy(assets, (it) => it.model.toLowerCase()).map(({ model, material }) => {
     return { model, material }
   })
 }
