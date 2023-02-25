@@ -14,7 +14,7 @@ Make sure your environment meets the following requirements:
 Clone the repo
 
 ```
-git clone ...
+git clone git@github.com:giniedp/nw-models.git
 ```
 
 Build
@@ -38,7 +38,7 @@ This will unpack all the game data into the unpack folder (see the `.env` file) 
 To extract and convert all item and weapon models just run
 
 ```
-yarn convert -p
+yarn convert
 ```
 
 and go for a lunch break, since it will take a while.
@@ -47,7 +47,7 @@ This command takes the following options
 
 ```
 Options:
-  -i, --input [inputDir]            Path to the unpacked game directory (default: "../nw-data")
+  -i, --input [inputDir]            Path to the unpacked game directory (default: "out/unpack")
   -o, --output [outputDir]          Path to the output directory (default: "out/models")
   -id, --id <itemId>                Filter by item id (may be part of ID)
   -skin, --skinFile <skinFileName>  Filter by skin file name (may be part of name)
@@ -60,7 +60,7 @@ Options:
 To convert a subset of models, you can filter by item ID. For example, this will export all voidbent armor items.
 
 ```
-yarn convert -id VoidbentT5 -p
+yarn convert -id VoidbentT5
 ```
 
 The output (with default `.env` file) has the following structure
@@ -81,11 +81,11 @@ To preview the models, run
 yarn viewer
 ```
 
-This will start a server and open the browser listing all converted models allowing to preview them
+This will start a server and open the browser listing all converted models, allowing you to preview them.
 
-# Planned features
+# Planned
 
 - Extract Bones and Animations
 - Extract Housing items
 - Allow to extract specific items, that are not in the database (structures?)
-
+- Optimize textures (https://www.khronos.org/assets/uploads/apis/KTX-2.0-Launch-Overview-Apr21_.pdf)
