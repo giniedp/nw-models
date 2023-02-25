@@ -10,6 +10,7 @@ Make sure your environment meets the following requirements:
 
 - Node 18
 - Yarn
+- Enough disk space for the intermediate models and texture artifacts ~100GB (>250GB when not limiting texture size)
 
 Clone the repo
 
@@ -48,16 +49,21 @@ This command takes the following options
 ```
 Options:
   -i, --input [inputDir]            Path to the unpacked game directory (default: "out/unpack")
-  -o, --output [outputDir]          Path to the output directory (default: "out/models")
-  -id, --id <itemId>                Filter by item id (may be part of ID)
-  -skin, --skinFile <skinFileName>  Filter by skin file name (may be part of name)
-  -u, --update                      Ignores and overrides previous export
-  -t, --threads                     Number of threads
-  --verbose                         Enables log output (automatically enabled if threads is 0)
-  -h, --help                        display help for command
+  -o, --output [outputDir]           Output Path to the output directory (default: "out/models")
+  -id, --id <itemId>                 Filter by item id (may be part of ID)
+  -skin, --skinFile <skinFileName>   Filter by skin file name (may be part of name)
+  -u, --update                       Ignores and overrides previous export
+  -t, --threads <threadCount>        Number of threads (default: "6")
+  -ts, --texture-size <textureSize>  Makes all textures the same size. Should be a power of 2 value (512, 1024, 2048 etc) (default: "1024")
+  --verbose                          Enables log output (automatically enabled if threads is 0)
+  -h, --help                         display help for command
 ```
 
 To convert a subset of models, you can filter by item ID. For example, this will export all voidbent armor items.
+
+The `texture-size` parameter is currently needed because an internal library requires the textures to be the same size when they are blended with each other.
+Pass a higher value here if you want to have higher resolution textures. You can also disable the texture
+scaling by passing a `0`. This will keep the original texture size. However, some item models wont be tinted correctly.
 
 ```
 yarn convert -id VoidbentT5
@@ -87,5 +93,7 @@ This will start a server and open the browser listing all converted models, allo
 
 - Extract Bones and Animations
 - Extract Housing items
-- Allow to extract specific items, that are not in the database (structures?)
+- Allow to extract specific models, that are not referenced in the datasheets (structures, expeditions?)
 - Optimize textures (https://www.khronos.org/assets/uploads/apis/KTX-2.0-Launch-Overview-Apr21_.pdf)
+- Overcome the texture size limitation
+- Use https://gltf-transform.donmccurdy.com/ instead of Babylon.js scene to transform the model

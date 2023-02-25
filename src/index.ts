@@ -61,11 +61,12 @@ program
   .command('convert')
   .description('Converts models to GLTF file format')
   .requiredOption('-i, --input [inputDir]', 'Path to the unpacked game directory', UNPACK_DIR)
-  .requiredOption('-o, --output [outputDir]', 'Path to the output directory', MODELS_DIR)
+  .requiredOption('-o, --output [outputDir]', 'Output Path to the output directory', MODELS_DIR)
   .option('-id, --id <itemId>', 'Filter by item id (may be part of ID)')
   .option('-skin, --skinFile <skinFileName>', 'Filter by skin file name (may be part of name)')
   .option('-u, --update', 'Ignores and overrides previous export')
-  .option('-t, --threads', 'Number of threads', '6')
+  .option('-t, --threads <threadCount>', 'Number of threads', '6')
+  .option('-ts, --texture-size <textureSize>', 'Makes all textures the same size. Should be a power of 2 value (512, 1024, 2048 etc)', '1024')
   .option('--verbose', 'Enables log output (automatically enabled if threads is 0)')
   .action(async (opts) => {
     logger.verbose(true)
@@ -78,7 +79,9 @@ program
     const update: boolean = opts.update
     const threads: number = Number(opts.threads) || 0
     const verbose: boolean = opts.verbose ?? !threads
+    const textureSize: number = Number(opts.textureSize) || null
 
+    logger.info('Resolving available assets')
     const tables = await readTables({ tablesDir: input })
     const assets = await collectAssets({
       items: tables.items,
@@ -91,8 +94,10 @@ program
       return list
     })
 
+    logger.info('Assets to convert:', assets.length)
+
     logger.verbose(true)
-    logger.info('Convert and copy textures')
+    logger.info('Step 1/4: Convert and copy textures')
     logger.verbose(verbose)
     const textures = await collectTextures({
       sourceRoot: input,
@@ -107,12 +112,13 @@ program
           targetRoot: output,
           texture: texture,
           update: update,
+          texSize: textureSize
         }
       }),
     })
 
     logger.verbose(true)
-    logger.info('Copy materials')
+    logger.info('Step 2/4: Copy materials')
     logger.verbose(verbose)
     const materials = await collectMaterials({
       sourceRoot: input,
@@ -131,7 +137,7 @@ program
     })
 
     logger.verbose(true)
-    logger.info('Convert and copy models')
+    logger.info('Step 3/4: Convert and copy models')
     logger.verbose(verbose)
     const models = await collectModels({
       sourceRoot: input,
@@ -152,7 +158,7 @@ program
     })
 
     logger.verbose(true)
-    logger.info('Generate item variations')
+    logger.info('Step 4/4: Generate item variations')
     logger.verbose(verbose)
     await runTasks({
       threads: threads,
@@ -167,10 +173,13 @@ program
       }),
     })
 
+    logger.verbose(true)
     await writeStats({
       outDir: output,
       assets: assets,
     })
+
+    logger.info('Done. You may run `yarn viewer` to view the models.')
   })
 
 program.parse(process.argv)
@@ -185,7 +194,7 @@ async function writeStats({ outDir, assets }: { assets: ModelAsset[]; outDir: st
         return {
           filePath: modelFile,
           fileSize: modelSize,
-          hasModel: modelExists,
+          hasModel: modelExists && modelSize > 0,
           tags,
           itemId: ItemID,
           itemType: ItemType,
