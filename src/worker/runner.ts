@@ -15,19 +15,19 @@ export async function runTasks<K extends TaskName>({ threads, taskName, tasks }:
   let count = 0
   const limit = tasks.length
 
-  const bar = new SingleBar({}, Presets.shades_classic)
-  bar.start(limit, 0)
+  const bar = threads ? new SingleBar({}, Presets.shades_classic) : null
+  bar?.start(limit, 0)
 
-  return new Promise<void>((resolve) => {
+  return new Promise<void>(async (resolve) => {
     for (const args of tasks) {
-      runner
+      await runner
         .exec(taskName, [args])
         .catch((err) => logger.error(err))
         .then(() => {
           count += 1
-          bar.increment()
+          bar?.increment()
           if (count >= limit) {
-            bar.stop()
+            bar?.stop()
             runner.terminate()
             resolve()
           }
