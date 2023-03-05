@@ -6,7 +6,7 @@ import sharp from 'sharp'
 
 import { MaterialObject } from '../../file-formats/mtl'
 import { Appearance, getAppearanceId } from '../../types'
-import { logger, readJsonFile, writeFile } from '../../utils'
+import { logger, readJsonFile, replaceExtname, writeFile } from '../../utils'
 
 interface PostProcessContext {
   model: IGLTF
@@ -140,25 +140,30 @@ async function fixMaterials({ model, material, appearance, update }: PostProcess
 
     if (mapSpecularTint || mapSpecular) {
       let file = mapSpecularTint || mapSpecular.File
-      // if (mapSmoothness && fs.existsSync(fileNameWithSuffix(mapSmoothness.File, '.a'))) {
-      //   file = await mergeSpecularGloss({
-      //     specFile: file,
-      //     glossFile: fileNameWithSuffix(mapSmoothness.File, '.a'),
-      //     appearance: appearance,
-      //     update
-      //   })
-      // }
-      const index = await appendTextureFromFile(file)
+      if (mapSmoothness && fs.existsSync(replaceExtname(mapSmoothness.File, '.a.png'))) {
+        file = await mergeSpecularGloss({
+          specFile: file,
+          glossFile: replaceExtname(mapSmoothness.File, '.a.png'),
+          appearance: appearance,
+          update,
+        })
+      }
+
+      const indexDiffuse = mtl.pbrMetallicRoughness.baseColorTexture
+      const indexSpecGloss = await appendTextureFromFile(file)
       model.extensionsUsed = append(model.extensionsUsed, 'KHR_materials_pbrSpecularGlossiness')
+      model.extensionsRequired = append(model.extensionsRequired, 'KHR_materials_pbrSpecularGlossiness')
+
       // https://kcoley.github.io/glTF/extensions/2.0/Khronos/KHR_materials_pbrSpecularGlossiness/
       mtl.extensions = mtl.extensions || {}
       mtl.extensions.KHR_materials_pbrSpecularGlossiness = {
-        diffuseTexture: mtl.pbrMetallicRoughness.baseColorTexture,
+        diffuseTexture: indexDiffuse,
         specularGlossinessTexture: {
-          index: index,
+          index: indexSpecGloss,
         },
-        glossinessFactor: 0.35,
       }
+      // need to remove the pbrMetallicRoughness, otherwise playcanvas would pick that up instead
+      delete mtl.pbrMetallicRoughness
     }
 
     if (mapEmit) {
@@ -332,14 +337,36 @@ async function mergeSpecularGloss({
     path.dirname(glossFile),
     path.basename(glossFile, path.extname(glossFile)) + '_' + id + path.extname(glossFile),
   )
-
   if (fs.existsSync(fileName) && !update) {
     return fileName
   }
 
+  // logger.activity('write', fileName)
+  // const gloss = await sharp(glossFile).extractChannel(0).toBuffer()
+  // await sharp(specFile).removeAlpha().joinChannel(gloss).toFile(fileName)
+  // return fileName
+
+  // the above does not work somehow (no alpha channel gets created)
+  // have to do it by hand
+
+  const specMap = await sharp(specFile).raw().ensureAlpha().toBuffer({ resolveWithObject: true })
+  const glossMap = await sharp(glossFile).raw().ensureAlpha().toBuffer({ resolveWithObject: true })
+
+  if (specMap.info.width !== glossMap.info.width) {
+    logger.warn('spec and gloss texture size mismatch')
+    return specFile
+  }
+
+  const outData = new Uint8ClampedArray(specMap.data)
+  const glossData = new Uint8ClampedArray(glossMap.data)
+
+  for (let i = 0; i < outData.length; i += specMap.info.channels) {
+    outData[i + 3] = glossData[i]
+  }
   logger.activity('write', fileName)
-  const gloss = await sharp(glossFile).extractChannel(0).toBuffer()
-  await sharp(specFile).removeAlpha().joinChannel(gloss).toFile(fileName)
+  await sharp(outData, {
+    raw: { width: specMap.info.width, height: specMap.info.height, channels: specMap.info.channels },
+  }).toFile(fileName)
   return fileName
 }
 
