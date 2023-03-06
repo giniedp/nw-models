@@ -181,6 +181,7 @@ async function fixMaterials({ model, material, appearance, update }: PostProcess
     if (origMtl?.attrs?.AlphaTest) {
       mtl.alphaCutoff = Number(origMtl.attrs.AlphaTest)
       mtl.alphaMode = 'MASK' as any
+      mtl.doubleSided = true
     }
   }
 }
