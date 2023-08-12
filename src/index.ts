@@ -10,18 +10,20 @@ import {
   collectTextures,
   filterAssetsByItemId,
   filterAssetsBySkinName,
+  filterItemsByItemId,
   readTables,
 } from './collect-assets'
-import { GAME_DIR, MODELS_DIR, UNPACK_DIR } from './env'
+import { GAME_DIR, MODELS_DIR, UNPACK_DIR, TABLES_DIR } from './env'
 import { datasheetConverter } from './tools/datasheet-converter'
 import { pakExtractor } from './tools/pak-extractor'
 import { glob, logger, wrapError, writeFile } from './utils'
 import { runTasks } from './worker'
 import { ModelAsset } from './types'
+import { cpus } from 'os'
 
 program
   .command('unpack')
-  .description('Extracts new world data and converts datatables to JSON')
+  .description('Extracts new world game files')
   .requiredOption('-i, --input [gameDir]', 'Path to the game directory', GAME_DIR)
   .requiredOption('-o, --output [outDir]', 'Path to the unpack directory', UNPACK_DIR)
   .action(async (options) => {
@@ -31,30 +33,40 @@ program
     const input = options.input
     const output = options.output
 
-    // TODO: only pull relevant model data
-    // https://github.com/new-world-tools/new-world-tools/issues/4
     await pakExtractor({
-      threads: 6,
-      assets: path.join(input, 'assets'),
+      threads: Math.min(cpus().length, 10),
+      input: path.join(input, 'assets'),
       output: output,
+      include: '(?i)(^objects|^textures|^sharedassets[/\\\\]springboardentitites[/\\\\]datatables)',
       fixLua: true,
       decompressAzcs: true,
     }).catch(wrapError('pak-extractor failed'))
+  })
 
-    const tablesDir = path.join(output, 'sharedassets/springboardentitites/datatables')
+program
+  .command('convert-tables')
+  .description('Converts data tables to JSON format')
+  .requiredOption(
+    '-i, --input [dataDir]',
+    'Path to the unpacked game data directory',
+    path.join(UNPACK_DIR, 'sharedassets/springboardentitites/datatables'),
+  )
+  .requiredOption('-o, --output [outDir]', 'Path to the tables directory', TABLES_DIR)
+  .action(async (options) => {
+    logger.verbose(true)
+    logger.debug('convert-tables', JSON.stringify(options, null, 2))
+
+    const input = options.input
+    const output = options.output
+
     await datasheetConverter({
-      threads: 6,
-      input: tablesDir,
-      output: tablesDir,
+      threads: Math.min(cpus().length, 10),
+      input: input,
+      output: output,
       format: 'json',
       keepStructure: true,
       pretty: true,
     }).catch(wrapError('datasheet-converter failed'))
-
-    const files = await glob(path.join(tablesDir, '**', '*.datasheet'))
-    for (const file of files) {
-      rimraf.sync(file)
-    }
   })
 
 program
