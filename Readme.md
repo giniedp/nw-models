@@ -26,13 +26,22 @@ yarn build
 
 Take a look at the `.env.example` file. Make a copy to `.env` and adjust it to your needs.
 
+If you have your own unpack workflow you can skip the `unpack` and `convert-tables` commands. Just make sure your `.env` is configured properly and the tables are in JSON format.
+
 If you have not unpacked the game data yet, run
 
 ```
 yarn unpack
 ```
 
-This will unpack all the game data into the unpack folder (see the `.env` file) and convert the datatables to JSON format. This step can be skipped if you have already unpacked the game data. In this case, make sure that the json datatable files have the original base name.
+This will unpack game data (models, textures, datasheets) into the unpack folder (see the `.env` file) 
+
+If you have not converted datatables to JSON yet, run
+```
+yarn convert-tables
+```
+
+
 
 # Convert models
 

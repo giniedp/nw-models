@@ -2,8 +2,10 @@ import { logger, spawn } from "../utils"
 
 export interface PakExtrakterArgs {
   exe?: string
-  assets: string
+  input: string
   output: string
+  include?: string
+  exclude?: string
   hashFile?: string
   decompressAzcs?: boolean
   fixLua?: boolean
@@ -11,8 +13,10 @@ export interface PakExtrakterArgs {
 }
 export async function pakExtractor({
   exe,
-  assets,
+  input,
   output,
+  include,
+  exclude,
   hashFile,
   decompressAzcs,
   fixLua,
@@ -20,7 +24,13 @@ export async function pakExtractor({
 }: PakExtrakterArgs) {
   // https://github.com/new-world-tools/new-world-tools
   const tool = exe || './tools/pak-extracter.exe'
-  const args = [`-assets`, assets, `-output`, output]
+  const args = [`-input`, input, `-output`, output]
+  if (include) {
+    args.push(`-include`, include)
+  }
+  if (exclude) {
+    args.push(`-exclude`, exclude)
+  }
   if (hashFile) {
     args.push(`-hash`, hashFile)
   }
