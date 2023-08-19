@@ -17,6 +17,7 @@
     />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ag-grid/25.1.0/ag-grid-community.min.js"></script>
     <script src="https://cdn.babylonjs.com/viewer/babylon.viewer.js"></script>
+    <script async src="https://nwdb.info/embed.js"></script>
   </head>
   <body>
     <div id="stats-grid" style="position: absolute; inset: 0" class="ag-theme-alpine-dark"></div>
@@ -85,6 +86,7 @@
           resizable: true,
           sortable: true,
           width: 300,
+          cellRenderer: ({ value }) => `<a href="https://nwdb.info/db/item/${value}" target="_blank">${value}</a>`,
         },
         {
           headerName: 'Item Type',
