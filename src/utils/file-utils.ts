@@ -31,6 +31,13 @@ export function replaceExtname(file: string, extname: string) {
   return path.join(dir, base) + extname
 }
 
+export function appendToFilename(file: string, toAppend: string) {
+  const extname = path.extname(file)
+  const dir = path.dirname(file)
+  const base = path.basename(file, extname)
+  return path.join(dir, base) + toAppend + extname
+}
+
 export async function transformTextFile(file: string, transform: (text: string) => Promise<string>) {
   const text = await fs.promises.readFile(file, { encoding: 'utf-8' })
   const result = await transform(text)

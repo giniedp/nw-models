@@ -5,6 +5,26 @@ import { logger } from '../../utils'
 import { BinaryReader } from './binary-reader'
 import { ChunkHeader, ChunkType, FileHeader, FileType, FileVersion } from './types'
 
+export interface CgfFile {
+  file: string
+  header: FileHeader
+  table: ChunkHeader[]
+  reader?: BinaryReader
+}
+
+export async function readCgf(file: string, attachReader = false): Promise<CgfFile> {
+  const buffer = await fs.promises.readFile(file)
+  const reader = new BinaryReader(buffer.buffer)
+  const header = readHeader(reader)
+  const table = readChunkTable(reader, header)
+  return {
+    file: file,
+    header: header,
+    table: table,
+    reader: attachReader ? reader : undefined,
+  }
+}
+
 export async function getMaterialNameForSkin(skinFile: string) {
   if (!fs.existsSync(skinFile)) {
     logger.warn('missing', skinFile)
@@ -19,7 +39,7 @@ export async function getMaterialNameForSkin(skinFile: string) {
     return null
   }
   reader.seekAbsolute(mtl.offset)
-  return reader.readString(128)
+  return reader.readString(mtl.size).replace(/\x00+$/, '')
 }
 
 export async function getMaterialFileForSkin(assetsDir: string, skinFile: string) {
@@ -33,7 +53,7 @@ export async function getMaterialFileForSkin(assetsDir: string, skinFile: string
   if (fs.existsSync(absFile)) {
     return mtlFile
   }
-  logger.warn('missing', absFile)
+  logger.warn('missing', absFile, `(${skinFile})`)
   return null
 }
 
@@ -78,8 +98,11 @@ function readChunkTable(reader: BinaryReader, header: FileHeader) {
 
 function readChunkHeader(reader: BinaryReader, header: FileHeader): ChunkHeader {
   if (header.version === FileVersion.CryTek1And2) {
+    const type = reader.readUInt()
+    const typeName = ChunkType[type]
     return {
-      type: reader.readUInt(),
+      type: type,
+      typeName: typeName,
       version: reader.readUInt(),
       offset: reader.readUInt(),
       id: reader.readInt(),
@@ -87,8 +110,11 @@ function readChunkHeader(reader: BinaryReader, header: FileHeader): ChunkHeader 
     }
   }
   if (header.version === FileVersion.CryTek3) {
+    const type = reader.readUInt()
+    const typeName = ChunkType[type]
     return {
-      type: reader.readUInt(),
+      type: type,
+      typeName: typeName,
       version: reader.readUInt(),
       offset: reader.readUInt(),
       id: reader.readInt(),
@@ -96,8 +122,11 @@ function readChunkHeader(reader: BinaryReader, header: FileHeader): ChunkHeader 
     }
   }
   if (header.version === FileVersion.CryTek_3_6) {
+    const type = reader.readUShort() + 0xcccbf000
+    const typeName = ChunkType[type]
     return {
-      type: reader.readUShort() + 0xcccbf000,
+      type: type,
+      typeName: typeName,
       version: reader.readUShort(),
       id: reader.readInt(),
       size: reader.readUInt(),

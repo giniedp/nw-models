@@ -1,25 +1,24 @@
 import 'colors'
 import { program } from 'commander'
-import * as path from 'path'
 import * as fs from 'fs'
-import rimraf from 'rimraf'
+import { cpus } from 'os'
+import * as path from 'path'
 import {
   collectAssets,
   collectMaterials,
   collectModels,
   collectTextures,
-  filterAssetsByItemId,
   filterAssetsBySkinName,
+  filterAssetsModelMaterialHash,
   filterItemsByItemId,
   readTables,
 } from './collect-assets'
-import { GAME_DIR, MODELS_DIR, UNPACK_DIR, TABLES_DIR } from './env'
+import { GAME_DIR, MODELS_DIR, TABLES_DIR, UNPACK_DIR } from './env'
 import { datasheetConverter } from './tools/datasheet-converter'
 import { pakExtractor } from './tools/pak-extractor'
-import { glob, logger, wrapError, writeFile } from './utils'
-import { runTasks } from './worker'
 import { ModelAsset } from './types'
-import { cpus } from 'os'
+import { logger, wrapError, writeFile } from './utils'
+import { runTasks } from './worker'
 
 program
   .command('unpack')
@@ -37,7 +36,7 @@ program
       threads: Math.min(cpus().length, 10),
       input: path.join(input, 'assets'),
       output: output,
-      include: '(?i)(^objects|^textures|^sharedassets[/\\\\]springboardentitites[/\\\\]datatables)',
+      include: '(?i)(^objects|^textures|^engineassets|^sharedassets[/\\\\]springboardentitites[/\\\\]datatables)',
       fixLua: true,
       decompressAzcs: true,
     }).catch(wrapError('pak-extractor failed'))
@@ -73,12 +72,18 @@ program
   .command('convert')
   .description('Converts models to GLTF file format')
   .requiredOption('-i, --input [inputDir]', 'Path to the unpacked game directory', UNPACK_DIR)
+  .requiredOption('-d, --tables [tablesDir]', 'Path to the tables directory', TABLES_DIR)
   .requiredOption('-o, --output [outputDir]', 'Output Path to the output directory', MODELS_DIR)
   .option('-id, --id <itemId>', 'Filter by item id (may be part of ID)')
+  .option('-md5, --md5 <md5Hash>', 'Filter by md5 hash')
   .option('-skin, --skinFile <skinFileName>', 'Filter by skin file name (may be part of name)')
   .option('-u, --update', 'Ignores and overrides previous export')
-  .option('-t, --threads <threadCount>', 'Number of threads', '6')
-  .option('-ts, --texture-size <textureSize>', 'Makes all textures the same size. Should be a power of 2 value (512, 1024, 2048 etc)', '1024')
+  .option('-t, --threads <threadCount>', 'Number of threads', String(cpus().length))
+  .option(
+    '-ts, --texture-size <textureSize>',
+    'Makes all textures the same size. Should be a power of 2 value (512, 1024, 2048 etc)',
+    '1024',
+  )
   .option('--verbose', 'Enables log output (automatically enabled if threads is 0)')
   .action(async (opts) => {
     logger.verbose(true)
@@ -86,35 +91,50 @@ program
 
     const input: string = opts.input
     const output: string = opts.output
+    const tablesDir: string = opts.tables
     const id: string = opts.id
     const skinFile: string = opts.skinFile
+    const md5: string = opts.md5
     const update: boolean = opts.update
     const threads: number = Number(opts.threads) || 0
     const verbose: boolean = opts.verbose ?? !threads
     const textureSize: number = Number(opts.textureSize) || null
 
     logger.info('Resolving available assets')
-    const tables = await readTables({ tablesDir: input })
+    const tables = await readTables({ tablesDir: tablesDir })
     const assets = await collectAssets({
-      items: tables.items,
-      itemAppearances: tables.appearances,
-      weaponAppearances: tables.weapons,
+      items: filterItemsByItemId(id, tables.items),
+      itemAppearances: tables.itemAppearances,
+      weaponAppearances: tables.weaponAppearances,
+      instrumentAppearances: tables.instrumentAppearances,
+      weapons: tables.weapons,
       sourceRoot: input,
-    }).then((list) => {
-      list = filterAssetsByItemId(id, list)
-      list = filterAssetsBySkinName(skinFile, list)
-      return list
     })
-
-    logger.info('Assets to convert:', assets.length)
-
-    logger.verbose(true)
-    logger.info('Step 1/4: Convert and copy textures')
-    logger.verbose(verbose)
+      .then((list) => {
+        list = filterAssetsBySkinName(skinFile, list)
+        return list
+      })
+      .then((list) => {
+        list = filterAssetsModelMaterialHash(md5, list)
+        return list
+      })
+    const models = await collectModels({
+      sourceRoot: input,
+      assets: assets,
+    })
+    const materials = await collectMaterials({
+      sourceRoot: input,
+      assets: assets,
+    })
     const textures = await collectTextures({
       sourceRoot: input,
       assets: assets,
     })
+
+    logger.verbose(true)
+    logger.info('Step 1/4: Convert and copy textures')
+    logger.verbose(verbose)
+
     await runTasks({
       threads: threads,
       taskName: 'processTexture',
@@ -124,7 +144,7 @@ program
           targetRoot: output,
           texture: texture,
           update: update,
-          texSize: textureSize
+          texSize: textureSize,
         }
       }),
     })
@@ -132,10 +152,7 @@ program
     logger.verbose(true)
     logger.info('Step 2/4: Copy materials')
     logger.verbose(verbose)
-    const materials = await collectMaterials({
-      sourceRoot: input,
-      assets: assets,
-    })
+
     await runTasks<'copyMaterial'>({
       taskName: 'copyMaterial',
       tasks: materials.map((file) => {
@@ -151,20 +168,17 @@ program
     logger.verbose(true)
     logger.info('Step 3/4: Convert and copy models')
     logger.verbose(verbose)
-    const models = await collectModels({
-      sourceRoot: input,
-      assets: assets,
-    })
     await runTasks({
       threads: threads,
       taskName: 'preprocessModel',
-      tasks: models.map(({ model, material }) => {
+      tasks: models.map(({ model, material, modelMaterialHash }) => {
         return {
           sourceRoot: input,
           targetRoot: output,
+          modelMaterialHash: modelMaterialHash,
           update,
           model: model,
-          material: material
+          material: material,
         }
       }),
     })
@@ -191,7 +205,7 @@ program
       assets: assets,
     })
 
-    logger.info('Done. You may run `yarn viewer` to view the models.')
+    logger.info('Done. Run `yarn viewer` to view the models.')
   })
 
 program.parse(process.argv)

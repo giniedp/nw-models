@@ -1,49 +1,29 @@
+import { GLTF } from '@gltf-transform/core'
 import * as fs from 'fs'
 import * as path from 'path'
-
-import { IGLTF } from 'babylonjs-gltf2interface'
 import sharp from 'sharp'
+import { MaterialObject } from '../../../file-formats/mtl'
+import { Appearance, getAppearanceId } from '../../../types'
+import { replaceExtname } from '../../../utils/file-utils'
+import { logger } from '../../../utils/logger'
 
-import { MaterialObject } from '../../file-formats/mtl'
-import { Appearance, getAppearanceId } from '../../types'
-import { logger, readJsonFile, replaceExtname, writeFile } from '../../utils'
-
-interface PostProcessContext {
-  model: IGLTF
-  material: MaterialObject[]
-  appearance: Appearance
-  update: boolean
-}
-
-export async function transformGltfMaterial({
-  input,
+export async function fixMaterials({
   material,
   appearance,
-  output,
   update,
+  gltf,
 }: {
-  input: string
   material: MaterialObject[]
   appearance: Appearance
-  output: string
   update: boolean
+  gltf: GLTF.IGLTF
 }) {
-  logger.activity('transformGltfMaterial')
-  const model = await readJsonFile<IGLTF>(input)
-  await fixMaterials({ model, material, appearance, update })
-  await writeFile(output, JSON.stringify(model, null, 2), {
-    encoding: 'utf-8',
-    createDir: true,
-  })
-}
-
-async function fixMaterials({ model, material, appearance, update }: PostProcessContext) {
-  if (!model.materials) {
+  if (!gltf.materials) {
     return
   }
 
-  if (!model.samplers?.length) {
-    model.samplers = [
+  if (!gltf.samplers?.length) {
+    gltf.samplers = [
       {
         magFilter: 9729,
         minFilter: 9986,
@@ -52,20 +32,20 @@ async function fixMaterials({ model, material, appearance, update }: PostProcess
       },
     ]
   }
-  model.images = model.images || []
-  model.textures = model.textures || []
+  gltf.images = gltf.images || []
+  gltf.textures = gltf.textures || []
 
   const cache = new Map<string, number>()
   async function appendTexture(key: string, fn: () => Promise<string>): Promise<number> {
     if (cache.has(key)) {
       return cache.get(key)
     }
-    const imageIndex = model.images.length
-    const textureIndex = model.textures.length
-    model.images.push({
+    const imageIndex = gltf.images.length
+    const textureIndex = gltf.textures.length
+    gltf.images.push({
       uri: await fn(),
     })
-    model.textures.push({
+    gltf.textures.push({
       sampler: 0,
       source: imageIndex,
     })
@@ -77,7 +57,7 @@ async function fixMaterials({ model, material, appearance, update }: PostProcess
     })
   }
 
-  for (const mtl of model.materials) {
+  for (const mtl of gltf.materials) {
     const origMtl = getMaterial(material, mtl.name)
     const textures = origMtl?.textures || []
 
@@ -151,8 +131,8 @@ async function fixMaterials({ model, material, appearance, update }: PostProcess
 
       const indexDiffuse = mtl.pbrMetallicRoughness.baseColorTexture
       const indexSpecGloss = await appendTextureFromFile(file)
-      model.extensionsUsed = append(model.extensionsUsed, 'KHR_materials_pbrSpecularGlossiness')
-      model.extensionsRequired = append(model.extensionsRequired, 'KHR_materials_pbrSpecularGlossiness')
+      gltf.extensionsUsed = append(gltf.extensionsUsed, 'KHR_materials_pbrSpecularGlossiness')
+      gltf.extensionsRequired = append(gltf.extensionsRequired, 'KHR_materials_pbrSpecularGlossiness')
 
       // https://kcoley.github.io/glTF/extensions/2.0/Khronos/KHR_materials_pbrSpecularGlossiness/
       mtl.extensions = mtl.extensions || {}

@@ -17,13 +17,14 @@ export interface FileHeader {
 
 export interface ChunkHeader {
   type: number
+  typeName: string
   version: number
   offset: number
   id: number
   size: number
 }
 
-export const enum ChunkType {
+export enum ChunkType {
   Any = 0x0,
   Mesh = 0xcccc0000,
   Helper = 0xcccc0001,

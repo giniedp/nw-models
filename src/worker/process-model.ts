@@ -1,10 +1,10 @@
 import * as path from 'path'
 import * as fs from 'fs'
-import { copyFile, logger, replaceExtname, transformTextFile, wrapError } from '../utils'
+import { appendToFilename, copyFile, logger, replaceExtname, transformTextFile, wrapError } from '../utils'
 import type { ModelAsset, TransformContext } from '../types'
 import { cgfConverter } from '../tools/cgf-converter'
 import { colladaToGltf } from '../tools/collada-to-gltf'
-import { transformGltfGeometry, transformGltfMaterial } from '../file-formats/gltf'
+import { transformGltf } from '../file-formats/gltf'
 import { loadMtlFile } from '../file-formats/mtl'
 
 export async function copyMaterial({
@@ -23,27 +23,38 @@ export async function copyMaterial({
   }).catch(wrapError(`copy material failed ${input}`))
 }
 
+function buildModelOutPath({
+  model,
+  modelMaterialHash,
+  targetRoot,
+}: Pick<ModelAsset & TransformContext, 'model' | 'targetRoot' | 'modelMaterialHash'>) {
+  return path.join(targetRoot, appendToFilename(model, modelMaterialHash ? `_${modelMaterialHash}` : ''))
+}
+
 export async function preprocessModel({
   model,
   material,
+  modelMaterialHash,
   sourceRoot,
   targetRoot,
   update,
-}: Pick<ModelAsset & TransformContext, 'model' | 'material' | 'sourceRoot' | 'targetRoot' | 'update'> ) {
+}: Pick<
+  ModelAsset & TransformContext,
+  'model' | 'material' | 'sourceRoot' | 'targetRoot' | 'update' | 'modelMaterialHash'
+>) {
   if (!model) {
     return
   }
 
   const input = path.join(sourceRoot, model)
-  const output = path.join(targetRoot, model)
+  const output = buildModelOutPath({ model, modelMaterialHash, targetRoot })
   await copyFile(input, output, {
     createDir: true,
-  }).catch(wrapError(`copy model failed ${input}`))
+  }).catch(wrapError(`copy model failed\n\t${input}`))
 
   const mtlFile = material ? path.join(targetRoot, material) : null
-  const cgfFile = path.join(targetRoot, model)
-  const daeFile = replaceExtname(cgfFile, '.dae')
-  const gltfFile = replaceExtname(cgfFile, '.gltf')
+  const daeFile = replaceExtname(output, '.dae')
+  const gltfFile = replaceExtname(output, '.gltf')
 
   if (fs.existsSync(gltfFile) && !update) {
     logger.info(`skipped`)
@@ -52,37 +63,31 @@ export async function preprocessModel({
 
   if (!fs.existsSync(daeFile) || update) {
     await cgfConverter({
-      input: cgfFile,
+      input: output,
       material: mtlFile,
-      dataDir: targetRoot, // fixes texture lookup, but writes absolute path names for textures
-      // logLevel: 0,
+      dataDir: targetRoot, // speeds up texture lookup, but writes wrong relative path names for textures
+      outDir: path.dirname(output),
+      logLevel: 0,
       png: true,
-    }).catch(wrapError(`cgf-converter failed ${cgfFile}`))
-    // Absolute paths look like this
-    //   <init_from>/C:/path/to/texture</init_from>
-    // the leading '/' is actually specified as a valid URI
-    // collada2gltf converter does not recognize the absolute URI so we have to make them relative again
-    // TODO: make this an option in cgfconverter.exe
+    }).catch(wrapError(`cgf-converter failed\n\t${output}`))
+    // TODO: review paths. fix and remove this workaround
     await transformTextFile(daeFile, async (text) => {
-      return text.replace(/<init_from>\/([^<]*\.png)<\/init_from>/gm, (match, texturePath) => {
-        const relativePath = path.relative(path.dirname(cgfFile), texturePath)
-        return `<init_from>${relativePath}<\/init_from>`
+      return text.replace(/<init_from>([^<]*\.(png|dds))<\/init_from>/gm, (match, texturePath) => {
+        texturePath = texturePath.replace(/(..[/\\])+/, '')
+        texturePath = path.join(targetRoot, texturePath)
+        texturePath = path.relative(path.dirname(daeFile), replaceExtname(texturePath, '.png'))
+        return `<init_from>${texturePath}<\/init_from>`
       })
     }).catch(wrapError(`transform dae model failed`))
   } else {
-    logger.info(`skipped ${cgfFile}`)
+    logger.info(`skipped ${output}`)
   }
 
   if (!fs.existsSync(gltfFile) || update) {
     await colladaToGltf({
       input: daeFile,
       output: gltfFile,
-    }).catch(wrapError(`collada2gltf failed ${daeFile}`))
-
-    await transformGltfGeometry({
-      input: gltfFile,
-      output: gltfFile,
-    }).catch(wrapError(`transformGltfGeometry failed ${gltfFile}`))
+    }).catch(wrapError(`collada2gltf failed\n\t${daeFile}`))
   } else {
     logger.info(`skipped ${daeFile}`)
   }
@@ -91,6 +96,7 @@ export async function preprocessModel({
 export async function processModel({
   model,
   material,
+  modelMaterialHash,
   refId,
   appearance,
   targetRoot,
@@ -101,22 +107,22 @@ export async function processModel({
   }
 
   const mtlFile = material ? path.join(targetRoot, material) : null
-  const cgfFile = path.join(targetRoot, model)
+  const cgfFile = buildModelOutPath({ model, modelMaterialHash, targetRoot })
   const gltfFile = replaceExtname(cgfFile, '.gltf')
   const finalFile = path.join(targetRoot, `${refId}.gltf`).toLowerCase()
 
-  await transformGltfMaterial({
+  await transformGltf({
     input: gltfFile,
     output: finalFile,
     appearance: appearance,
     material: await getMaterial(targetRoot, mtlFile),
     update: update,
-  }).catch(wrapError(`transformGltfMaterial failed ${gltfFile}`))
+  }).catch(wrapError(`transformGltf failed\n\t${gltfFile}`))
 }
 
 // loads the material file and transforms the texture paths
-// - textureas are already in the targetRoot
-// - textureas are already in .png format
+// - textures are already in the targetRoot
+// - textures are already in .png format
 async function getMaterial(targetRoot: string, filePath: string) {
   if (!filePath) {
     return null
@@ -128,9 +134,9 @@ async function getMaterial(targetRoot: string, filePath: string) {
       textures: mtl.textures?.map((tex) => {
         return {
           ...tex,
-          File: path.join(targetRoot, replaceExtname(tex.File, '.png')) 
+          File: path.join(targetRoot, replaceExtname(tex.File, '.png')),
         }
-      })
+      }),
     }
   })
 }
