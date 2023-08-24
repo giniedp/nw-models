@@ -112,7 +112,7 @@ export async function ddsToPng({ isNormal, ddsFile, outDir, size }: DdsToPngOpti
 }
 
 export async function copyDdsFile({ input, output }: { input: string; output: string }): Promise<string[]> {
-  
+
   const mips = await glob(input + '.*', {
     caseSensitiveMatch: false,
   })

@@ -1,6 +1,6 @@
 import * as path from 'path'
 import * as fs from 'fs'
-import { appendToFilename, copyFile, logger, replaceExtname, transformTextFile, wrapError } from '../utils'
+import { appendToFilename, copyFile, logger, mkdir, replaceExtname, transformTextFile, wrapError } from '../utils'
 import type { ModelAsset, TransformContext } from '../types'
 import { cgfConverter } from '../tools/cgf-converter'
 import { colladaToGltf } from '../tools/collada-to-gltf'
@@ -97,10 +97,11 @@ export async function processModel({
   model,
   material,
   modelMaterialHash,
-  refId,
   appearance,
   targetRoot,
   update,
+  outDir,
+  outFile,
 }: ModelAsset & TransformContext) {
   if (!model) {
     return
@@ -109,7 +110,11 @@ export async function processModel({
   const mtlFile = material ? path.join(targetRoot, material) : null
   const cgfFile = buildModelOutPath({ model, modelMaterialHash, targetRoot })
   const gltfFile = replaceExtname(cgfFile, '.gltf')
-  const finalFile = path.join(targetRoot, `${refId}.gltf`).toLowerCase()
+  const finalFile = replaceExtname(path.join(targetRoot, outDir, outFile).toLowerCase(), '.gltf')
+  
+  await mkdir(path.dirname(finalFile), {
+    recursive: true,
+  })
 
   await transformGltf({
     input: gltfFile,

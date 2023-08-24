@@ -5,15 +5,72 @@ export interface TransformContext {
 }
 
 export interface ModelAsset {
-  refId: string
-  items: ItemDefinitionMaster[]
   appearance?: Appearance
   model: string
   material: string
   modelMaterialHash: string
-  tags: string[]
+  outDir: string
+  outFile: string
 }
-
+export interface Housingitems {
+  AttributionId?:              string;
+  AudioCreated:                string;
+  AudioPickup:                 string;
+  AudioPlace:                  string;
+  AudioUse:                    string;
+  BindOnPickup:                boolean;
+  ColorFamilies?:              string;
+  ConfirmBeforeUse:            boolean;
+  ConsumeOnUse:                boolean;
+  CraftingRecipe?:             string;
+  "DEV-FurnitureSet"?:         string;
+  DeathDropPercentage:         number;
+  Description:                 string;
+  ExcludeFromGame:             number;
+  ForceRarity:                 number;
+  HiResIconPath?:              string;
+  HouseItemID:                 string;
+  HousingStatusEffect?:        string;
+  "HousingTag1 Placed"?:       string;
+  "HousingTag2 Points"?:       string;
+  "HousingTag3 Limiter"?:      string;
+  "HousingTag5 Buffs"?:        string;
+  HousingTags?:                string;
+  "HowToOptain (Primarily)"?:  string;
+  IconPath?:                   string;
+  InteractionAnimationID?:     string;
+  IsEntitlement?:              string;
+  IsRepairable:                boolean;
+  IsSalvageable:               boolean;
+  ItemRarity?:                 string;
+  ItemType:                    string;
+  ItemTypeDisplayName?:        string;
+  MaxPotentialPoints:          number;
+  MaxStackSize:                number;
+  Name:                        string;
+  Nonremovable:                boolean;
+  Notes?:                      string;
+  PlacementGridDisplaySize?:   string;
+  PointModifier:               number;
+  PrefabPath:                  string;
+  "Primary Color"?:            string;
+  RankingPoints:               number;
+  RankingPointsDuplicateLimit: number;
+  RankingPointsNegativeLimit:  number;
+  RepairDustModifier:          number;
+  RepairRecipe?:               string;
+  SalvageGameEventID?:         string;
+  SalvageRecipe?:              string;
+  SalvageResources:            boolean;
+  StorageBonus:                number;
+  Tier:                        number;
+  TradingCategory?:            string;
+  TradingFamily?:              string;
+  TradingGroup?:               string;
+  UIHousingCategory?:          string;
+  UiItemClass:                 string;
+  Weight:                      number;
+}
 export interface ItemDefinitionMaster {
   AcquisitionNotificationId?: number
   ArmorAppearanceF?: string
@@ -222,11 +279,11 @@ export interface AppearanceMaskDefinition {
 
 export interface WeaponAppearanceDefinition extends AppearanceMaskDefinition {
   WeaponAppearanceID: string
-  MeshOverride?: string
-  SkinOverride2?: string
   Appearance?: string
   FemaleAppearance?: string
+  MeshOverride?: string
   SkinOverride1?: string
+  SkinOverride2?: string
   MaterialOverride1?: string
 
   RDyeSlotDisabled?: string

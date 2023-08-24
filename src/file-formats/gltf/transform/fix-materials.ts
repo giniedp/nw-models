@@ -1,23 +1,36 @@
 import { GLTF } from '@gltf-transform/core'
 import * as fs from 'fs'
-import * as path from 'path'
 import sharp from 'sharp'
 import { MaterialObject } from '../../../file-formats/mtl'
 import { Appearance, getAppearanceId } from '../../../types'
-import { replaceExtname } from '../../../utils/file-utils'
+import { appendToFilename, replaceExtname } from '../../../utils/file-utils'
 import { logger } from '../../../utils/logger'
+import { createHash } from 'crypto'
 
-export async function fixMaterials({
-  material,
-  appearance,
-  update,
-  gltf,
-}: {
-  material: MaterialObject[]
-  appearance: Appearance
-  update: boolean
+export interface FixMaterialsOptions {
+  /**
+   * The gltf document to update
+   */
   gltf: GLTF.IGLTF
-}) {
+  /**
+   * Whether to update existing files
+   */
+  update: boolean
+  /**
+   * The appearance of the model with tint colors and other settings
+   */
+  appearance: Appearance
+  /**
+   * Original materials infos from mtl file
+   */
+  material: MaterialObject[]
+  /**
+   * Whether to bake the appearance colors into the diffuse texture
+   */
+  bakeAppearance: boolean
+}
+
+export async function fixMaterials({ gltf, update, material, appearance, bakeAppearance }: FixMaterialsOptions) {
   if (!gltf.materials) {
     return
   }
@@ -34,32 +47,25 @@ export async function fixMaterials({
   }
   gltf.images = gltf.images || []
   gltf.textures = gltf.textures || []
+  gltf.extras = gltf.extras || {}
+  if (appearance) {
+    gltf.extras.appearanceBaked = bakeAppearance
+    gltf.extras.appearance = appearance
+  } else {
+    bakeAppearance = false
+  }
 
-  const cache = new Map<string, number>()
-  async function appendTexture(key: string, fn: () => Promise<string>): Promise<number> {
-    if (cache.has(key)) {
-      return cache.get(key)
-    }
-    const imageIndex = gltf.images.length
-    const textureIndex = gltf.textures.length
-    gltf.images.push({
-      uri: await fn(),
-    })
-    gltf.textures.push({
-      sampler: 0,
-      source: imageIndex,
-    })
-    return textureIndex
-  }
-  async function appendTextureFromFile(imageFile: string): Promise<number> {
-    return appendTexture(imageFile, async () => {
-      return fs.promises.readFile(imageFile).then((it) => `data:image/png;base64,` + it.toString('base64'))
-    })
-  }
+  const cache = textureCache(gltf)
 
   for (const mtl of gltf.materials) {
     const origMtl = getMaterial(material, mtl.name)
     const textures = origMtl?.textures || []
+    const appearanceFileSuffix = (hashContent?: string) => {
+      const idSuffix = appearance ? getAppearanceId(appearance) : ''
+      const bakeSuffix = bakeAppearance ? 'baked' : ''
+      const hashSuffix = hashContent ? createHash('md5').update(hashContent).digest('hex') : ''
+      return [idSuffix, bakeSuffix, hashSuffix].filter((it) => it).join('_')
+    }
 
     // <Texture Map="Smoothness" File="path_ddna.dds"/>
     // <Texture Map="Bumpmap" File="path_ddna.dds"/>
@@ -75,7 +81,7 @@ export async function fixMaterials({
     // - rgb -> Bumpmap
     // - a -> Smoothness
     const mapBumpmap = textures.find((it) => it.Map === 'Bumpmap')
-    const mapSmoothness = textures.find((it) => it.Map === 'Smoothness')
+    let mapSmoothness = textures.find((it) => it.Map === 'Smoothness')
     // Metal Materials have a specular map applied
     const mapSpecular = textures.find((it) => it.Map === 'Specular')
     // Custom color mask (dye color?)
@@ -83,54 +89,90 @@ export async function fixMaterials({
     // Items that glow have an emit color map
     const mapEmit = textures.find((it) => it.Map === 'Emittance')
 
-    let mapDiffuseTint: string
-    if (mapCustom && mapDiffuse) {
-      mapDiffuseTint = await blitDiffuse({
-        base: mapDiffuse.File,
-        mask: mapCustom.File,
-        appearance: appearance,
-        update: update,
+    logger.debug('mapDiffuse', mapDiffuse?.File)
+    logger.debug('mapBumpmap', mapBumpmap?.File)
+    logger.debug('mapSmoothness', mapSmoothness?.File)  
+    logger.debug('mapSpecular', mapSpecular?.File)
+    logger.debug('mapCustom', mapCustom?.File)
+    logger.debug('mapEmit', mapEmit?.File)
+    
+    if (!mapSmoothness && mapBumpmap) {
+      logger.debug('use mapBumpmap as mapSmoothness')
+      mapSmoothness = mapBumpmap
+    }
+
+    let mapDiffuseFile: string = mapDiffuse?.File
+    if (mapCustom && mapDiffuseFile && bakeAppearance) {
+      const cacheSource = [mapDiffuseFile, mapCustom.File].join('-')
+      const cacheFile = appendToFilename(mapDiffuseFile, appearanceFileSuffix(cacheSource))
+      mapDiffuseFile = await withFileCache(cacheFile, update, () => {
+        return blendDiffuseMap({
+          base: mapDiffuseFile,
+          mask: mapCustom.File,
+          appearance: appearance,
+          outFile: cacheFile,
+        })
+      }).catch((err) => {
+        logger.error(`failed to blend diffuse map\n\t${mapDiffuseFile}\n\t${mapCustom.File}\n\t${cacheFile}\n`, err)
+        return mapDiffuseFile
+      }).then((result) => {
+        return result || mapDiffuse?.File
       })
     }
 
-    if (mapDiffuseTint) {
-      const file = mapDiffuseTint
+    if (mapDiffuseFile) {
       mtl.pbrMetallicRoughness = {
         baseColorTexture: {
-          index: await appendTextureFromFile(file),
+          index: await cache.addTextureFromFile(mapDiffuseFile),
         },
         metallicFactor: 0,
       }
     }
 
     if (mapBumpmap && mtl.normalTexture) {
-      mtl.normalTexture.index = await appendTextureFromFile(mapBumpmap.File)
+      mtl.normalTexture.index = await cache.addTextureFromFile(mapBumpmap.File)
       mtl.normalTexture.scale = 1
     }
 
-    let mapSpecularTint: string
-    if (mapCustom && mapSpecular) {
-      mapSpecularTint = await blitSpecular({
-        base: mapSpecular.File,
-        mask: mapCustom.File,
-        appearance: appearance,
-        update: update,
+    let mapSpecularFile: string = mapSpecular?.File
+    if (mapCustom && mapSpecularFile && bakeAppearance) {
+      const hashContent = [mapSpecularFile, mapCustom.File].join('-')
+      const cacheFile = appendToFilename(mapSpecularFile, appearanceFileSuffix(hashContent))
+      mapSpecularFile = await withFileCache(cacheFile, update, () => {
+        return blendSpecularMap({
+          base: mapSpecularFile,
+          mask: mapCustom.File,
+          appearance: appearance,
+          outFile: cacheFile,
+        })
+      }).catch((err) => {
+        logger.error(`failed to blend specular map\n\t${mapSpecularFile}\n\t${mapCustom.File}\n\t${cacheFile}\n`, err)
+        return mapSpecularFile
+      }).then((result) => {
+        return result || mapSpecular?.File
       })
     }
 
-    if (mapSpecularTint || mapSpecular) {
-      let file = mapSpecularTint || mapSpecular.File
+    if (mapSpecularFile) {
+      logger.info(mapSpecularFile)
       if (mapSmoothness && fs.existsSync(replaceExtname(mapSmoothness.File, '.a.png'))) {
-        file = await mergeSpecularGloss({
-          specFile: file,
-          glossFile: replaceExtname(mapSmoothness.File, '.a.png'),
-          appearance: appearance,
-          update,
+        const glossFile = replaceExtname(mapSmoothness.File, '.a.png')
+        const hashContent = [mapSpecularFile, glossFile].join('-')
+        const cacheFile = replaceExtname(appendToFilename(mapSmoothness.File, appearanceFileSuffix(hashContent)), '.a.png')
+        mapSpecularFile = await withFileCache(cacheFile, update, () => {
+          return mergeSpecularGloss({
+            specFile: mapSpecularFile,
+            glossFile: glossFile,
+            outFile: cacheFile,
+          })
+        }).catch((err) => {
+          logger.error(`failed to merge specular gloss\n\t${mapSpecularFile}\n\t${glossFile}\n\t${cacheFile}\n`, err)
+          return mapSpecularFile
         })
       }
-
+      logger.info(mapSpecularFile)
       const indexDiffuse = mtl.pbrMetallicRoughness.baseColorTexture
-      const indexSpecGloss = await appendTextureFromFile(file)
+      const indexSpecGloss = await cache.addTextureFromFile(mapSpecularFile)
       gltf.extensionsUsed = append(gltf.extensionsUsed, 'KHR_materials_pbrSpecularGlossiness')
       gltf.extensionsRequired = append(gltf.extensionsRequired, 'KHR_materials_pbrSpecularGlossiness')
 
@@ -148,9 +190,9 @@ export async function fixMaterials({
 
     if (mapEmit) {
       mtl.emissiveTexture = {
-        index: await appendTextureFromFile(mapEmit.File),
+        index: await cache.addTextureFromFile(mapEmit.File),
       }
-      if (appearance.EmissiveColor) {
+      if (appearance?.EmissiveColor) {
         // max value of EmissiveIntensity is 10
         const factor = (appearance.EmissiveIntensity || 0) / 10
         const color = hexToRgb(appearance.EmissiveColor, 1 / 255)
@@ -165,6 +207,26 @@ export async function fixMaterials({
     }
   }
 }
+
+export async function attachMaskTexture({ gltf, material }: { gltf: GLTF.IGLTF, material: MaterialObject[] }) {
+  if (!gltf.materials) {
+    return
+  }
+  const cache = textureCache(gltf)
+  for (const mtl of gltf.materials) {
+    const origMtl = getMaterial(material, mtl.name)
+    const textures = origMtl?.textures || []
+    const mapCustom = textures.find((it) => it.Map === 'Custom')
+    if (mapCustom) {
+      logger.debug('attach mask', mapCustom.File)
+      mtl.extras = mtl.extras || {}
+      mtl.extras.maskTexture = {
+        index: await cache.addTextureFromFile(mapCustom.File)
+      }
+    }
+  }
+}
+
 
 function append(array: string[], value: string) {
   array = array || []
@@ -181,21 +243,22 @@ function getMaterial(list: MaterialObject[], name: string) {
   return list.find((it) => it.attrs.Name.toLowerCase() === name.toLowerCase())
 }
 
-async function blitDiffuse({
+async function blendDiffuseMap({
   base,
   mask,
   appearance,
-  update,
+  outFile,
 }: {
   base: string
   mask: string
   appearance: Appearance
-  update: boolean
+  outFile: string
 }) {
   const maskR = appearance.MaskROverride || appearance.MaskR || 0
   const maskG = appearance.MaskGOverride || appearance.MaskG || 0
   const maskB = appearance.MaskBOverride || appearance.MaskB || 0
   if (!(maskR || maskG || maskB)) {
+    logger.debug('no diffuse mask override')
     return
   }
 
@@ -204,15 +267,6 @@ async function blitDiffuse({
   const maskColorB = appearance.MaskBColor
   if (!(maskColorR || maskColorG || maskColorB)) {
     return null
-  }
-
-  const id = getAppearanceId(appearance).toLowerCase()
-  const fileName = path.join(
-    path.dirname(base),
-    path.basename(base, path.extname(base)) + '_' + id + path.extname(base),
-  )
-  if (fs.existsSync(fileName) && !update) {
-    return fileName
   }
 
   const sBase = await sharp(base).raw().toBuffer({ resolveWithObject: true })
@@ -241,24 +295,24 @@ async function blitDiffuse({
     baseData[i + 2] = lerp(baseData[i + 2], b, maskB || 0)
   }
 
-  logger.activity('write', fileName)
+  logger.activity('write', outFile)
   await sharp(baseData, {
     raw: { width: sBase.info.width, height: sBase.info.height, channels: sBase.info.channels },
-  }).toFile(fileName)
-  return fileName
+  }).toFile(outFile)
+  return outFile
 }
 
-async function blitSpecular({
+async function blendSpecularMap({
   base,
   mask,
   appearance,
-  update,
+  outFile,
 }: {
   base: string
   mask: string
   appearance: Appearance
-  update: boolean
-}) {
+  outFile: string
+}): Promise<string> {
   if (!appearance.MaskASpec) {
     return null
   }
@@ -266,14 +320,6 @@ async function blitSpecular({
     return null
   }
 
-  const id = getAppearanceId(appearance).toLowerCase()
-  const fileName = path.join(
-    path.dirname(base),
-    path.basename(base, path.extname(base)) + '_' + id + path.extname(base),
-  )
-  if (fs.existsSync(fileName) && !update) {
-    return fileName
-  }
   const sBase = await sharp(base).raw().toBuffer({ resolveWithObject: true })
   const sMask = await sharp(mask).raw().toBuffer({ resolveWithObject: true })
 
@@ -295,33 +341,22 @@ async function blitSpecular({
     baseData[i + 2] = lerp(baseData[i + 2], b, appearance.MaskASpec)
   }
 
-  logger.activity('write', fileName)
+  logger.activity('write', outFile)
   await sharp(baseData, {
     raw: { width: sBase.info.width, height: sBase.info.height, channels: sBase.info.channels },
-  }).toFile(fileName)
-  return fileName
+  }).toFile(outFile)
+  return outFile
 }
 
 async function mergeSpecularGloss({
   glossFile,
   specFile,
-  appearance,
-  update,
+  outFile,
 }: {
   glossFile: string
   specFile: string
-  appearance: Appearance
-  update: boolean
+  outFile: string
 }) {
-  const id = getAppearanceId(appearance).toLowerCase()
-  const fileName = path.join(
-    path.dirname(glossFile),
-    path.basename(glossFile, path.extname(glossFile)) + '_' + id + path.extname(glossFile),
-  )
-  if (fs.existsSync(fileName) && !update) {
-    return fileName
-  }
-
   // logger.activity('write', fileName)
   // const gloss = await sharp(glossFile).extractChannel(0).toBuffer()
   // await sharp(specFile).removeAlpha().joinChannel(gloss).toFile(fileName)
@@ -344,11 +379,11 @@ async function mergeSpecularGloss({
   for (let i = 0; i < outData.length; i += specMap.info.channels) {
     outData[i + 3] = glossData[i]
   }
-  logger.activity('write', fileName)
+  logger.activity('write', outFile)
   await sharp(outData, {
     raw: { width: specMap.info.width, height: specMap.info.height, channels: specMap.info.channels },
-  }).toFile(fileName)
-  return fileName
+  }).toFile(outFile)
+  return outFile
 }
 
 function hexToRgb(hex: string, scale = 1) {
@@ -368,4 +403,47 @@ function hexToRgb(hex: string, scale = 1) {
 
 function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t
+}
+
+async function withFileCache(file: string, update: boolean, fn: () => Promise<any>): Promise<string> {
+  if (!fs.existsSync(file) && update) {
+    logger.debug('update', file)
+    await fn()
+  }
+  if (!fs.existsSync(file)) {
+    logger.debug('skipped', file)
+    return null
+  }
+  return file
+}
+
+function textureCache(gltf: GLTF.IGLTF) {
+  gltf.images = gltf.images || []
+  gltf.textures = gltf.textures || []
+
+  const cache = new Map<string, number>()
+  async function addTexture(key: string, fn: () => Promise<string>): Promise<number> {
+    if (cache.has(key)) {
+      return cache.get(key)
+    }
+    const imageIndex = gltf.images.length
+    const textureIndex = gltf.textures.length
+    gltf.images.push({
+      uri: await fn(),
+    })
+    gltf.textures.push({
+      sampler: 0,
+      source: imageIndex,
+    })
+    return textureIndex
+  }
+  async function addTextureFromFile(imageFile: string): Promise<number> {
+    return addTexture(imageFile, async () => {
+      return fs.promises.readFile(imageFile).then((it) => `data:image/png;base64,` + it.toString('base64'))
+    })
+  }
+  return {
+    addTexture: addTexture,
+    addTextureFromFile: addTextureFromFile
+  }
 }

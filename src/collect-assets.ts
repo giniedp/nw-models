@@ -4,9 +4,9 @@ import { uniqBy } from 'lodash'
 import * as path from 'path'
 import { readCdf } from './file-formats/cdf'
 import { loadMtlFile } from './file-formats/mtl'
-
+import { walkJsonObjects } from './tools/walk-json'
 import {
-  getAppearanceId,
+  Housingitems,
   InstrumentAppearance,
   ItemAppearanceDefinition,
   ItemDefinitionMaster,
@@ -14,19 +14,13 @@ import {
   ModelAsset,
   WeaponAppearanceDefinition,
 } from './types'
-import { CaseInsensitiveMap, CaseInsensitiveSet, glob, logger, readJsonFile, replaceExtname } from './utils'
-
-function toMap<T, K extends keyof T>(list: T[], key: K) {
-  return new CaseInsensitiveMap<string, T>(list.map((item) => [item[key as string], item]))
-}
+import { CaseInsensitiveMap, CaseInsensitiveSet, logger, readJsonFile, replaceExtname } from './utils'
 
 export async function readTables({ tablesDir }: { tablesDir: string }) {
-  const items = await glob([
-    path.join(tablesDir, 'javelindata_itemdefinitions_master_*.json'),
-    path.join(tablesDir, 'mtx', '*_itemdefinitions_*.json'),
-  ])
-    .then((items) => Promise.all(items.map((it) => readJsonFile<ItemDefinitionMaster[]>(it))))
-    .then((data) => data.flat(1))
+  const housingItems = [
+    ...(await readJsonFile<Housingitems[]>(path.join(tablesDir, 'javelindata_housingitems.json'))),
+    ...(await readJsonFile<Housingitems[]>(path.join(tablesDir, 'mtx', 'javelindata_housingitems_mtx.json'))),
+  ]
   const itemAppearances = await readJsonFile<ItemAppearanceDefinition[]>(
     path.join(tablesDir, 'javelindata_itemappearancedefinitions.json'),
   )
@@ -40,7 +34,7 @@ export async function readTables({ tablesDir }: { tablesDir: string }) {
     path.join(tablesDir, 'javelindata_itemdefinitions_weapons.json'),
   )
   return {
-    items,
+    housingItems,
     itemAppearances,
     weaponAppearances,
     instrumentAppearances,
@@ -57,14 +51,13 @@ export function fixMtlPath(sourceDir: string, mtlFile: string, logTag: string) {
     return mtlFile
   }
   // materials are sometimes referenced wrongly
-  // - tmp\assets\objects\weapons\melee\spears\2h\spearisabella\textures\wep_mel_spr_2h_spearisabella_matgroup.mtl
+  // - objects\weapons\melee\spears\2h\spearisabella\textures\wep_mel_spr_2h_spearisabella_matgroup.mtl
   // should be
-  // - tmp\assets\objects\weapons\melee\spears\2h\spearisabella\wep_mel_spr_2h_spearisabella_matgroup.mtl
+  // - objects\weapons\melee\spears\2h\spearisabella\wep_mel_spr_2h_spearisabella_matgroup.mtl
   const candidate = path.join(path.dirname(mtlFile), '..', path.basename(mtlFile))
   if (mtlFile.includes('textures') && fs.existsSync(path.join(sourceDir, candidate))) {
     return candidate
   }
-
   logger.warn('missing material', mtlFile, `(${logTag})`)
   return null
 }
@@ -81,178 +74,247 @@ export function fixModelPath(sourceDir: string, modelFile: string, logTag: strin
   return null
 }
 
+type AssetCollector = ReturnType<typeof assetCollector>
+function assetCollector(sourceRoot: string) {
+  const assets = new CaseInsensitiveMap<string, ModelAsset>()
+
+  async function addAsset({ appearance, model, material, outDir, outFile }: Omit<ModelAsset, 'modelMaterialHash'>) {
+    material = fixMtlPath(sourceRoot, material, [outDir, outFile].join(' '))
+    model = fixModelPath(sourceRoot, model, [outDir, outFile].join(' '))
+    if (!model || !material) {
+      return
+    }
+    const refId = path.join(outDir, outFile)
+    if (assets.has(refId)) {
+      logger.warn(`skipped duplicate asset: ${refId}`)
+    } else {
+      assets.set(refId, {
+        model: model,
+        material: material,
+        appearance: appearance,
+        modelMaterialHash: createHash('md5').update(`${model}-${material}`).digest('hex'),
+        outDir: outDir,
+        outFile: outFile + '.gltf',
+      })
+    }
+  }
+  return {
+    sourceRoot: sourceRoot,
+    values: () => assets.values(),
+    addAsset,
+  }
+}
+
 export async function collectAssets({
-  items,
+  housingItems,
   itemAppearances,
   weaponAppearances,
   instrumentAppearances,
   weapons,
   sourceRoot,
+  slicesRoot
 }: {
-  items: ItemDefinitionMaster[]
+  housingItems: Housingitems[]
   itemAppearances: ItemAppearanceDefinition[]
   weaponAppearances: WeaponAppearanceDefinition[]
   instrumentAppearances: InstrumentAppearance[]
   weapons: ItemdefinitionsWeapons[]
   sourceRoot: string
+  slicesRoot: string
 }) {
-  const itemAppearancesMap = toMap(itemAppearances, 'ItemID')
-  const weaponAppearancesMap = toMap(weaponAppearances, 'WeaponAppearanceID')
-  const instrumentAppearancesMap = toMap(instrumentAppearances, 'WeaponAppearanceID')
-  const weaponsMap = toMap(weapons, 'WeaponID')
-  const assets = new CaseInsensitiveMap<string, ModelAsset>()
+  const result = assetCollector(sourceRoot)
+  // await collectHousingItems(slicesRoot, housingItems, result)
+  await collectItemAppearances(itemAppearances, result)
+  await collectWeaponAppearances(weaponAppearances, result)
+  await collectInstrumentAppearances(instrumentAppearances, result)
+  await collectWeapons(weapons, result)
+  return Array.from(result.values())
+}
 
-  async function addAsset(
-    item: ItemDefinitionMaster,
-    { appearance, tags, model, material }: Omit<ModelAsset, 'items' | 'refId' | 'modelMaterialHash'>,
-  ) {
-    material = fixMtlPath(sourceRoot, material, [item.ItemID, ...tags].join(' '))
-    model = fixModelPath(sourceRoot, model, [item.ItemID, ...tags].join(' '))
-    if (!model || !material) {
-      return
-    }
-    const refId = `${getAppearanceId(appearance)}-${tags.join('-')}`.toLowerCase()
-    if (!assets.has(refId)) {
-      assets.set(refId, {
-        refId: refId,
-        items: [],
-        model: model,
-        material: material,
-        appearance: appearance,
-        modelMaterialHash: createHash('md5').update(`${model}-${material}`).digest('hex'),
-        tags: tags,
-      })
-    }
-    const asset = assets.get(refId)
-    asset.items.push(item)
+async function collectItemAppearances(items: ItemAppearanceDefinition[], collector: AssetCollector) {
+  const outDir = 'itemappearances'
+  for (const item of items) {
+    await collector.addAsset({
+      appearance: item,
+      model: item.Skin1,
+      material: item.Material1,
+      outDir: outDir,
+      outFile: [item.ItemID, 'Skin1'].join('-'),
+    })
+    await collector.addAsset({
+      appearance: item,
+      model: item.Skin2,
+      material: item.Material2,
+      outDir: outDir,
+      outFile: [item.ItemID, 'Skin2'].join('-'),
+    })
   }
+}
 
-  async function addArmor(item: ItemDefinitionMaster) {
-    let appearance = itemAppearancesMap.get(item.ArmorAppearanceM)
-    if (appearance) {
-      await addAsset(item, {
-        appearance,
-        tags: ['male', item.ItemType],
-        model: appearance.Skin1,
-        material: appearance.Material1,
-      })
-    }
-    appearance = itemAppearancesMap.get(item.ArmorAppearanceF)
-    if (appearance) {
-      await addAsset(item, {
-        appearance,
-        tags: ['female', item.ItemType],
-        model: appearance.Skin1,
-        material: appearance.Material1,
-      })
-    }
+async function collectWeapons(items: ItemdefinitionsWeapons[], collector: AssetCollector) {
+  const outDir = 'weapons'
+  for (const item of items) {
+    await collector.addAsset({
+      appearance: null,
+      model: item.SkinOverride1,
+      material: item.MaterialOverride1,
+      outDir: outDir,
+      outFile: [item.WeaponID, 'SkinOverride1'].join('-'),
+    })
+    await collector.addAsset({
+      appearance: null,
+      model: item.SkinOverride2,
+      material: item.MaterialOverride1,
+      outDir: outDir,
+      outFile: [item.WeaponID, 'SkinOverride2'].join('-'),
+    })
   }
+}
 
-  async function addWeapon(item: ItemDefinitionMaster) {
-    const weaponAppearance = weaponAppearancesMap.get(item.WeaponAppearanceOverride)
-    // TODO: research whether this is used to override the appearance of the weapon
-    // const weapon = weaponsMap.get(item.ItemStatsRef)
-    
-    if (!weaponAppearance) {
-      return
-    }
-    let appearance = itemAppearancesMap.get(weaponAppearance.Appearance)
-    if (appearance) {
-      await addAsset(item, {
-        appearance,
-        tags: ['male', item.ItemType],
-        model: appearance.Skin1, 
-        material: appearance.Material1,
-      })
-      await addAsset(item, {
-        appearance,
-        tags: ['male', item.ItemType, 'skin2'],
-        model: appearance.Skin2, 
-        material: appearance.Material1 || appearance.Material2,
-      })
-    }
-    appearance = itemAppearancesMap.get(weaponAppearance.FemaleAppearance)
-    if (appearance) {
-      await addAsset(item, {
-        appearance,
-        tags: ['female', item.ItemType],
-        model: appearance.Skin1,
-        material: appearance.Material1,
-      })
-      await addAsset(item, {
-        appearance,
-        tags: ['female', item.ItemType, 'skin2'],
-        model: appearance.Skin2, 
-        material: appearance.Material1 || appearance.Material2,
-      })
-    }
-  }
-
-  async function addInstrumentOrWeaponMesh(item: ItemDefinitionMaster) {
-    const wpa = weaponAppearancesMap.get(item.WeaponAppearanceOverride) || instrumentAppearancesMap.get(item.WeaponAppearanceOverride)
-    if (!wpa) {
-      return
-    }
-
-    // TODO: research whether this is used to override the appearance of the weapon
-    const weapon = weaponsMap.get(item.ItemStatsRef)
-    const meshOverride = wpa.MeshOverride
-    
-    if (path.extname(meshOverride) === '.cdf') {
-      await readCdf(path.join(sourceRoot, meshOverride))
+async function collectWeaponAppearances(items: WeaponAppearanceDefinition[], collector: AssetCollector) {
+  for (const item of items) {
+    await collector.addAsset({
+      appearance: item,
+      model: item.SkinOverride1,
+      material: item.MaterialOverride1,
+      outDir: 'weaponappearances',
+      outFile: [item.WeaponAppearanceID, 'SkinOverride1'].join('-'),
+    })
+    await collector.addAsset({
+      appearance: item,
+      model: item.SkinOverride2,
+      material: item.MaterialOverride1, // HINT: this is a guess, there is no `MaterialOverride2`
+      outDir: 'weaponappearances',
+      outFile: [item.WeaponAppearanceID, 'SkinOverride2'].join('-'),
+    })
+    if (item.MeshOverride && path.extname(item.MeshOverride) === '.cdf') {
+      await readCdf(path.join(collector.sourceRoot, item.MeshOverride))
         .then(({ model, material }) => {
-          addAsset(item, {
-            appearance: wpa,
+          return collector.addAsset({
+            appearance: item,
             model: model,
             material: material,
-            tags: ['mesh', item.ItemType],
+            outDir: 'weaponappearances',
+            outFile: [item.WeaponAppearanceID, 'MeshOverride'].join('-'),
           })
         })
         .catch(() => {
-          logger.warn(`failed to read`, meshOverride)
+          logger.warn(`failed to read`, item.MeshOverride)
         })
     }
-    if (path.extname(meshOverride) === '.cgf') {
-      addAsset(item, {
-        appearance: wpa,
-        model: meshOverride,
-        material: weapon.MaterialOverride1,
-        tags: ['mesh', item.ItemType],
+    if (item.MeshOverride && path.extname(item.MeshOverride) === '.cgf') {
+      await collector.addAsset({
+        appearance: item,
+        model: item.MeshOverride,
+        material: item.MaterialOverride1,
+        outDir: 'weaponappearances',
+        outFile: [item.WeaponAppearanceID, 'MeshOverride'].join('-'),
       })
     }
   }
+}
 
+async function collectInstrumentAppearances(items: InstrumentAppearance[], collector: AssetCollector) {
+  const outDir = 'instrumentappearances'
   for (const item of items) {
-    await addArmor(item)
-    await addWeapon(item)
-    await addInstrumentOrWeaponMesh(item)
-  }
-
-  return Array.from(assets.values())
-}
-
-export function filterItemsByItemId(id: string, items: ItemDefinitionMaster[]) {
-  if (!id) {
-    return items
-  }
-  const ids = id.split(',').map((it) => it.toLowerCase())
-  return items.filter((it) => {
-    const itemId = it.ItemID.toLowerCase()
-    return ids.some((id) => itemId.includes(id))
-  })
-}
-
-export function filterAssetsByItemId(id: string, assets: ModelAsset[]) {
-  if (!id) {
-    return assets
-  }
-  const ids = id.split(',').map((it) => it.toLowerCase())
-  return assets.filter((it) => {
-    return it.items.some((item) => {
-      const itemId = item.ItemID.toLowerCase()
-      return ids.some((it) => itemId.includes(it))
+    await collector.addAsset({
+      appearance: item,
+      model: item.SkinOverride1,
+      material: item.MaterialOverride1,
+      outDir: outDir,
+      outFile: [item.WeaponAppearanceID, 'SkinOverride1'].join('-'),
     })
-  })
+    await collector.addAsset({
+      appearance: item,
+      model: item.SkinOverride2,
+      material: item.MaterialOverride2,
+      outDir: outDir,
+      outFile: [item.WeaponAppearanceID, 'SkinOverride2'].join('-'),
+    })
+    await collector.addAsset({
+      appearance: item,
+      model: item.SkinOverride3,
+      material: item.MaterialOverride3,
+      outDir: outDir,
+      outFile: [item.WeaponAppearanceID, 'SkinOverride3'].join('-'),
+    })
+    await collector.addAsset({
+      appearance: item,
+      model: item.SkinOverride4,
+      material: item.MaterialOverride4,
+      outDir: outDir,
+      outFile: [item.WeaponAppearanceID, 'SkinOverride4'].join('-'),
+    })
+    if (item.MeshOverride && path.extname(item.MeshOverride) === '.cdf') {
+      await readCdf(path.join(collector.sourceRoot, item.MeshOverride))
+        .then(({ model, material }) => {
+          return collector.addAsset({
+            appearance: item,
+            model: model,
+            material: material,
+            outDir: outDir,
+            outFile: [item.WeaponAppearanceID, 'MeshOverride'].join('-'),
+          })
+        })
+        .catch(() => {
+          logger.warn(`failed to read`, item.MeshOverride)
+        })
+    }
+    if (item.MeshOverride && path.extname(item.MeshOverride) === '.cgf') {
+      await collector.addAsset({
+        appearance: item,
+        model: item.MeshOverride,
+        material: item.MaterialOverride1,
+        outDir: 'instrumentappearances',
+        outFile: [item.WeaponAppearanceID, 'MeshOverride'].join('-'),
+      })
+    }
+  }
+}
+
+async function collectHousingItems(slicesDir: string, items: Housingitems[], collector: AssetCollector) {
+  const outDir = 'housingitems'
+  for (const item of items) {
+    const sliceFile = path.join(slicesDir, item.PrefabPath) + '.dynamicslice.json'
+    if (!fs.existsSync(sliceFile)) {
+      logger.warn('missing slice', sliceFile)
+      continue
+    }
+    const sliceJSON = readJsonFile(sliceFile)
+    walkJsonObjects(sliceJSON, (obj) => {
+      const node = obj['static mesh render node']
+      if (!node) {
+        return false
+      }
+      const mesh = node['static mesh']
+      const mtl = node['material override']
+    })
+    // await collector.addAsset({
+    //   appearance: item,
+    //   model: item.Skin1,
+    //   material: item.Material1,
+    //   outDir: outDir,
+    //   outFile: [item.ItemID, 'Skin1'].join('-'),
+    // })
+    // await collector.addAsset({
+    //   appearance: item,
+    //   model: item.Skin2,
+    //   material: item.Material2,
+    //   outDir: outDir,
+    //   outFile: [item.ItemID, 'Skin2'].join('-'),
+    // })
+  }
+}
+
+export function byIdFilter<T>(idProp: keyof T, id: string) {
+  if (!id) {
+    return (item: T) => true
+  }
+  const ids = id.split(',').map((it) => it.toLowerCase())
+  return (item: T) => {
+    const itemId = String(item[idProp]).toLowerCase()
+    return ids.some((id) => itemId.includes(id))
+  }
 }
 
 export function filterAssetsBySkinName(skin: string, assets: ModelAsset[]) {

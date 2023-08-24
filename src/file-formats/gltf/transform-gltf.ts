@@ -6,7 +6,7 @@ import { writeFile } from '../../utils/file-utils'
 import { logger } from '../../utils/logger'
 import { MaterialObject } from '../mtl'
 import { computeNormals } from './transform/compute-normals'
-import { fixMaterials } from './transform/fix-materials'
+import { attachMaskTexture, fixMaterials } from './transform/fix-materials'
 import { removeSkinning } from './transform/remove-skinning'
 import { removeVertexColor } from './transform/remove-vertex-color'
 
@@ -31,6 +31,7 @@ export async function transformGltf({
     appearance,
     update,
     gltf: jsonDocument.json,
+    bakeAppearance: true,
   })
 
   const document = await io.readJSON(jsonDocument)
@@ -53,6 +54,12 @@ export async function transformGltf({
   for (const buf of result.json.buffers || []) {
     buf.uri = `data:application/octet-stream;base64,` + Buffer.from(result.resources[buf.uri]).toString('base64')
   }
+  // HINT: prune cleans up the file and removes unused textures
+  // thus we have to add custom textures after prune
+  await attachMaskTexture({
+    gltf: result.json,
+    material: material
+  })
 
   await writeFile(output, JSON.stringify(result.json, null, 2), {
     createDir: true,

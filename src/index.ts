@@ -4,21 +4,22 @@ import * as fs from 'fs'
 import { cpus } from 'os'
 import * as path from 'path'
 import {
+  byIdFilter,
   collectAssets,
   collectMaterials,
   collectModels,
   collectTextures,
   filterAssetsBySkinName,
   filterAssetsModelMaterialHash,
-  filterItemsByItemId,
   readTables,
 } from './collect-assets'
-import { GAME_DIR, MODELS_DIR, TABLES_DIR, UNPACK_DIR } from './env'
+import { GAME_DIR, MODELS_DIR, SLICES_DIR, TABLES_DIR, UNPACK_DIR } from './env'
 import { datasheetConverter } from './tools/datasheet-converter'
 import { pakExtractor } from './tools/pak-extractor'
 import { ModelAsset } from './types'
 import { logger, wrapError, writeFile } from './utils'
 import { runTasks } from './worker'
+import { objectStreamConverter } from './tools/object-stream-converter'
 
 program
   .command('unpack')
@@ -36,7 +37,7 @@ program
       threads: Math.min(cpus().length, 10),
       input: path.join(input, 'assets'),
       output: output,
-      include: '(?i)(^objects|^textures|^engineassets|^sharedassets[/\\\\]springboardentitites[/\\\\]datatables)',
+      include: '(?i)(^objects|^textures|^materials|^engineassets|^sharedassets[/\\\\]springboardentitites[/\\\\]datatables|^slices[/\\\\]housing)',
       fixLua: true,
       decompressAzcs: true,
     }).catch(wrapError('pak-extractor failed'))
@@ -68,14 +69,40 @@ program
     }).catch(wrapError('datasheet-converter failed'))
   })
 
+  
+program
+.command('convert-slices')
+.description('Converts slices to JSON format')
+.requiredOption(
+  '-i, --input [dataDir]',
+  'Path to the unpacked game data directory',
+  path.join(UNPACK_DIR, 'slices'),
+)
+.requiredOption('-o, --output [outDir]', 'Path to the tables directory', SLICES_DIR)
+.action(async (options) => {
+  logger.verbose(true)
+  logger.debug('convert-slices', JSON.stringify(options, null, 2))
+
+  const input = options.input
+  const output = options.output
+
+  await objectStreamConverter({
+    threads: Math.min(cpus().length, 10),
+    input: input,
+    output: output,
+    pretty: true,
+  }).catch(wrapError('object-stream-converter failed'))
+})
+
 program
   .command('convert')
   .description('Converts models to GLTF file format')
   .requiredOption('-i, --input [inputDir]', 'Path to the unpacked game directory', UNPACK_DIR)
   .requiredOption('-d, --tables [tablesDir]', 'Path to the tables directory', TABLES_DIR)
+  .requiredOption('-s, --slices [slicesDir]', 'Path to the slices directory', SLICES_DIR)
   .requiredOption('-o, --output [outputDir]', 'Output Path to the output directory', MODELS_DIR)
-  .option('-id, --id <itemId>', 'Filter by item id (may be part of ID)')
-  .option('-md5, --md5 <md5Hash>', 'Filter by md5 hash')
+  .option('-id, --id <appearanceId>', 'Filter by appearance id (may be part of ID)')
+  .option('-hash, --hash <md5Hash>', 'Filter by md5 hash')
   .option('-skin, --skinFile <skinFileName>', 'Filter by skin file name (may be part of name)')
   .option('-u, --update', 'Ignores and overrides previous export')
   .option('-t, --threads <threadCount>', 'Number of threads', String(cpus().length))
@@ -92,9 +119,10 @@ program
     const input: string = opts.input
     const output: string = opts.output
     const tablesDir: string = opts.tables
+    const slicesDir: string = opts.slices
     const id: string = opts.id
     const skinFile: string = opts.skinFile
-    const md5: string = opts.md5
+    const hash: string = opts.hash
     const update: boolean = opts.update
     const threads: number = Number(opts.threads) || 0
     const verbose: boolean = opts.verbose ?? !threads
@@ -103,19 +131,20 @@ program
     logger.info('Resolving available assets')
     const tables = await readTables({ tablesDir: tablesDir })
     const assets = await collectAssets({
-      items: filterItemsByItemId(id, tables.items),
-      itemAppearances: tables.itemAppearances,
-      weaponAppearances: tables.weaponAppearances,
-      instrumentAppearances: tables.instrumentAppearances,
-      weapons: tables.weapons,
+      housingItems: tables.housingItems.filter(byIdFilter('HouseItemID', id)),
+      itemAppearances: tables.itemAppearances.filter(byIdFilter('ItemID', id)),
+      weaponAppearances: tables.weaponAppearances.filter(byIdFilter('WeaponAppearanceID', id)),
+      instrumentAppearances: tables.instrumentAppearances.filter(byIdFilter('WeaponAppearanceID', id)),
+      weapons: tables.weapons.filter(byIdFilter('WeaponID', id)),
       sourceRoot: input,
+      slicesRoot: slicesDir
     })
       .then((list) => {
         list = filterAssetsBySkinName(skinFile, list)
         return list
       })
       .then((list) => {
-        list = filterAssetsModelMaterialHash(md5, list)
+        list = filterAssetsModelMaterialHash(hash, list)
         return list
       })
     const models = await collectModels({
@@ -129,6 +158,12 @@ program
     const textures = await collectTextures({
       sourceRoot: input,
       assets: assets,
+    })
+
+    logger.info({
+      models: models.length,
+      assets: assets.length,
+      textures: textures.length,
     })
 
     logger.verbose(true)
@@ -212,20 +247,16 @@ program.parse(process.argv)
 
 async function writeStats({ outDir, assets }: { assets: ModelAsset[]; outDir: string }) {
   const stats = assets
-    .map(({ refId, tags, items }) => {
-      const modelFile = path.join(outDir, `${refId}.gltf`).toLowerCase()
+    .map((item) => {
+      const modelFile = path.join(outDir, item.outDir, item.outFile).toLowerCase()
       const modelExists = fs.existsSync(modelFile)
       const modelSize = modelExists ? fs.statSync(modelFile).size : 0
-      return items.map(({ ItemID, ItemType }) => {
-        return {
-          filePath: modelFile,
-          fileSize: modelSize,
-          hasModel: modelExists && modelSize > 0,
-          tags,
-          itemId: ItemID,
-          itemType: ItemType,
-        }
-      })
+      return {
+        ...item,
+        filePath: modelFile,
+        fileSize: modelSize,
+        hasModel: modelExists && modelSize > 0,
+      }
     })
     .flat()
 
