@@ -76,6 +76,7 @@ export async function ddsToPng({ isNormal, ddsFile, outDir, size }: DdsToPngOpti
     output: outDir,
     width: size,
     height: size,
+    sepalpha: true
   }
 
   if (fs.existsSync(pngFile)) {

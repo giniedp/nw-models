@@ -15,6 +15,8 @@ export interface TexconvArgs {
   height?: number
   invertY?: boolean
   reconstructZ?: boolean
+  alpha?: boolean
+  sepalpha?: boolean
 }
 
 export async function texconv({
@@ -28,6 +30,8 @@ export async function texconv({
   height,
   invertY,
   reconstructZ,
+  alpha,
+  sepalpha
 }: TexconvArgs) {
   // https://github.com/Microsoft/DirectXTex/wiki/Texconv
   const tool = exe || './tools/texconv.exe'
@@ -55,6 +59,12 @@ export async function texconv({
   }
   if (reconstructZ) {
     args.push(`-reconstructz`, reconstructZ)
+  }
+  if (alpha) {
+    args.push(`-alpha`)
+  }
+  if (sepalpha) {
+    args.push(`-sepalpha`)
   }
   args.push('-nologo')
   args.push('-fl', '12.1')
