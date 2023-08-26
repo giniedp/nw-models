@@ -3,7 +3,7 @@ import 'babylonjs-loaders'
 import './dye-loader-extension'
 import './dye-material-plugin'
 import { DefaultViewer, ViewerModel } from 'babylonjs-viewer'
-import { writable, derived } from 'svelte/store'
+import { writable, derived, type Unsubscriber } from 'svelte/store'
 import { DyeMaterialPlugin } from './dye-material-plugin'
 import { DyeLoaderExtension } from './dye-loader-extension'
 import type { DyeColor } from '../dye-colors'
@@ -52,12 +52,15 @@ export function showBabylonViewer(options: BabylonViewerOptions) {
       },
     } as any,
   })
-
+  let unsub: Unsubscriber | null
   viewer.onModelLoadedObservable.add((model) => {
+    unsub?.()
+    unsub = null
+
     const foundAppearance = model.meshes.map((mesh) => DyeLoaderExtension.getAppearance(mesh.material)).find((it) => !!it)
     appearance.set(foundAppearance)
 
-    derived([appearance, dyeR, dyeG, dyeB, dyeA, debugMask], (it) => it).subscribe(([data, r, g, b, a, debug]) => {
+    unsub = derived([appearance, dyeR, dyeG, dyeB, dyeA, debugMask], (it) => it).subscribe(([data, r, g, b, a, debug]) => {
       updateDyeChannel({
         model,
         appearance: data!,
@@ -79,6 +82,7 @@ export function showBabylonViewer(options: BabylonViewerOptions) {
     debugMask,
     dispose: () => {
       viewer.dispose()
+      unsub?.()
     },
   }
 }
