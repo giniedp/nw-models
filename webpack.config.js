@@ -1,9 +1,10 @@
-
 const webpack = require('webpack')
 const SveltePreprocess = require('svelte-preprocess')
 const path = require('path')
-const HtmlWebpackPlugin = require('html-webpack-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin')
 const Autoprefixer = require('autoprefixer')
+
+const MODELS_DIR = path.resolve(process.env.NW_MODELS_DIR || path.join('out', 'models'))
 
 module.exports = (arg) => {
   const mode = arg.mode ?? 'development'
@@ -16,25 +17,25 @@ module.exports = (arg) => {
     devServer: {
       port: 9000,
       static: {
-        directory: path.join(__dirname, './'),
+        directory: MODELS_DIR,
         watch: false,
       },
     },
     plugins: [
       new HtmlWebpackPlugin({
         template: './packages/viewer/index.html',
-      })
+      }),
     ],
     resolve: {
       alias: {
-        svelte: path.dirname(require.resolve('svelte/package.json'))
+        svelte: path.dirname(require.resolve('svelte/package.json')),
       },
       conditionNames: ['svelte'],
       extensions: ['.mjs', '.js', '.svelte', '.ts'],
-      mainFields: ['svelte', 'browser', 'module', 'main']
+      mainFields: ['svelte', 'browser', 'module', 'main'],
     },
     output: {
-      path: path.resolve(__dirname, 'out'),
+      path: MODELS_DIR,
       filename: '[name].js',
       publicPath: '/',
     },
@@ -66,8 +67,7 @@ module.exports = (arg) => {
           test: /node_modules\/svelte\/.*\.mjs$/,
           resolve: {
             fullySpecified: false,
-            
-          }
+          },
         },
         {
           test: /\.ts$/,
@@ -76,8 +76,8 @@ module.exports = (arg) => {
         },
         {
           test: /\.css$/i,
-          use: ["style-loader", "css-loader"],
-        }
+          use: ['style-loader', 'css-loader'],
+        },
       ],
     },
     target: 'web',

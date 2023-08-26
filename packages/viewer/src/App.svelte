@@ -35,26 +35,22 @@
   }
 
   async function loadData() {
-    const data = await fetch('out/models/stats.json').then((it) => it.json())
+    const data = await fetch('stats.json').then((it) => it.json())
     gridApi.setRowData(data)
   }
 
+  function modelPath(data: any) {
+    return [data.outDir, data.outFile].join('/')
+  }
   const columnDefs: ColDef[] = [
     {
-      headerName: 'Dir',
-      field: 'outDir',
-      filter: true,
-      resizable: true,
-      sortable: true,
-      width: 300,
-    },
-    {
       headerName: 'File',
-      field: 'outFile',
+      valueGetter: ({ data }) => modelPath(data),
       filter: true,
       resizable: true,
       sortable: true,
-      width: 300,
+      width: 600,
+      cellRenderer: ({ value }: ICellRendererParams) => `<a href="${value}" target="_blank">${value}</a>`,
     },
     {
       headerName: 'Has Model',
@@ -63,15 +59,6 @@
       resizable: true,
       sortable: true,
       width: 150,
-    },
-    {
-      headerName: 'Path',
-      field: 'filePath',
-      filter: true,
-      resizable: true,
-      sortable: true,
-      width: 500,
-      cellRenderer: ({ value }: ICellRendererParams) => `<a href="${value}" target="_blank">${value}</a>`,
     },
     {
       headerName: 'Size',
@@ -93,7 +80,7 @@
           const btn = document.createElement('button')
           btn.classList.add('btn', 'btn-info', 'btn-sm')
           btn.addEventListener('click', () => {
-            viewer.show(data.filePath as any)
+            viewer.show(modelPath(data))
           })
           btn.textContent = 'Viewer'
           el.append(btn)

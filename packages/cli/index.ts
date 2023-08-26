@@ -3,6 +3,8 @@ import { program } from 'commander'
 import * as fs from 'fs'
 import { cpus } from 'os'
 import * as path from 'path'
+import * as cp from 'child_process'
+
 import {
   byIdFilter,
   collectAssets,
@@ -17,7 +19,7 @@ import { GAME_DIR, MODELS_DIR, SLICES_DIR, TABLES_DIR, UNPACK_DIR } from './env'
 import { datasheetConverter } from './tools/datasheet-converter'
 import { pakExtractor } from './tools/pak-extractor'
 import { ModelAsset } from './types'
-import { logger, wrapError, writeFile } from './utils'
+import { logger, spawn, wrapError, writeFile } from './utils'
 import { runTasks } from './worker'
 import { objectStreamConverter } from './tools/object-stream-converter'
 
@@ -37,7 +39,8 @@ program
       threads: Math.min(cpus().length, 10),
       input: path.join(input, 'assets'),
       output: output,
-      include: '(?i)(^objects|^textures|^materials|^engineassets|^sharedassets[/\\\\]springboardentitites[/\\\\]datatables|^slices[/\\\\]housing)',
+      include:
+        '(?i)(^objects|^textures|^materials|^engineassets|^sharedassets[/\\\\]springboardentitites[/\\\\]datatables|^slices[/\\\\]housing)',
       fixLua: true,
       decompressAzcs: true,
     }).catch(wrapError('pak-extractor failed'))
@@ -69,30 +72,25 @@ program
     }).catch(wrapError('datasheet-converter failed'))
   })
 
-  
 program
-.command('convert-slices')
-.description('Converts slices to JSON format')
-.requiredOption(
-  '-i, --input [dataDir]',
-  'Path to the unpacked game data directory',
-  path.join(UNPACK_DIR, 'slices'),
-)
-.requiredOption('-o, --output [outDir]', 'Path to the tables directory', SLICES_DIR)
-.action(async (options) => {
-  logger.verbose(true)
-  logger.debug('convert-slices', JSON.stringify(options, null, 2))
+  .command('convert-slices')
+  .description('Converts slices to JSON format')
+  .requiredOption('-i, --input [dataDir]', 'Path to the unpacked game data directory', path.join(UNPACK_DIR, 'slices'))
+  .requiredOption('-o, --output [outDir]', 'Path to the tables directory', SLICES_DIR)
+  .action(async (options) => {
+    logger.verbose(true)
+    logger.debug('convert-slices', JSON.stringify(options, null, 2))
 
-  const input = options.input
-  const output = options.output
+    const input = options.input
+    const output = options.output
 
-  await objectStreamConverter({
-    threads: Math.min(cpus().length, 10),
-    input: input,
-    output: output,
-    pretty: true,
-  }).catch(wrapError('object-stream-converter failed'))
-})
+    await objectStreamConverter({
+      threads: Math.min(cpus().length, 10),
+      input: input,
+      output: output,
+      pretty: true,
+    }).catch(wrapError('object-stream-converter failed'))
+  })
 
 program
   .command('convert')
@@ -137,7 +135,7 @@ program
       instrumentAppearances: tables.instrumentAppearances.filter(byIdFilter('WeaponAppearanceID', id)),
       weapons: tables.weapons.filter(byIdFilter('WeaponID', id)),
       sourceRoot: input,
-      slicesRoot: slicesDir
+      slicesRoot: slicesDir,
     })
       .then((list) => {
         list = filterAssetsBySkinName(skinFile, list)
@@ -241,6 +239,17 @@ program
     })
 
     logger.info('Done. Run `yarn viewer` to view the models.')
+  })
+
+program
+  .command('viewer')
+  .description('Starts the viewer server')
+  .requiredOption('-d, --dir [directory]', 'Models directory to serve', MODELS_DIR)
+  .action(async (options) => {
+    await spawn('http-server', [options.dir, '-c-1', '--no-dotfiles', '-o', 'index.html'], {
+      shell: true,
+      stdio: 'inherit',
+    })
   })
 
 program.parse(process.argv)
