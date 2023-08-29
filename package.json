@@ -15,7 +15,7 @@
     "convert-slices": "yarn cli convert-slices",
     "convert": "yarn cli convert",
     "clean": "yarn cli clean",
-    "viewer": "yarn cli convert",
+    "viewer": "yarn cli viewer",
     "cli": "env-cmd -f .env node ./dist/cli/index.js"
   },
   "author": "Ginie",
@@ -70,6 +70,7 @@
     "node-color-log": "^10.0.2",
     "node-worker-threads-pool": "^1.5.1",
     "npmlog": "^7.0.1",
+    "playcanvas": "^1.65.3",
     "postcss": "^8.4.28",
     "postcss-loader": "^7.3.3",
     "rimraf": "^5.0.1",
