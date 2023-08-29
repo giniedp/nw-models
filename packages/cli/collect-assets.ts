@@ -148,6 +148,55 @@ async function collectItemAppearances(items: ItemAppearanceDefinition[], collect
       outDir: outDir,
       outFile: [item.ItemID, 'Skin2'].join('-'),
     })
+    // await collector.addAsset({
+    //   appearance: item,
+    //   model: item.ShortsleeveChestSkin,
+    //   material: item.Material1 || item.Material2,
+    //   outDir: outDir,
+    //   outFile: [item.ItemID, 'ShortsleeveChestSkin'].join('-'),
+    // })
+    // await collector.addAsset({
+    //   appearance: item,
+    //   model: item.HandsNoForearmsSkin,
+    //   material: item.Material1 || item.Material2,
+    //   outDir: outDir,
+    //   outFile: [item.ItemID, 'HandsNoForearmsSkin'].join('-'),
+    // })
+    // await collector.addAsset({
+    //   appearance: item,
+    //   model: item.LeftHandOnlySkin,
+    //   material: item.Material1 || item.Material2,
+    //   outDir: outDir,
+    //   outFile: [item.ItemID, 'LeftHandOnlySkin'].join('-'),
+    // })
+    // await collector.addAsset({
+    //   appearance: item,
+    //   model: item.RightHandOnlySkin,
+    //   material: item.Material1 || item.Material2,
+    //   outDir: outDir,
+    //   outFile: [item.ItemID, 'RightHandOnlySkin'].join('-'),
+    // })
+    // await collector.addAsset({
+    //   appearance: item,
+    //   model: item.LeftSleeveOnlyChestSkin,
+    //   material: item.Material1 || item.Material2,
+    //   outDir: outDir,
+    //   outFile: [item.ItemID, 'LeftSleeveOnlyChestSkin'].join('-'),
+    // })
+    // await collector.addAsset({
+    //   appearance: item,
+    //   model: item.RightSleeveOnlyChestSkin,
+    //   material: item.Material1 || item.Material2,
+    //   outDir: outDir,
+    //   outFile: [item.ItemID, 'RightSleeveOnlyChestSkin'].join('-'),
+    // })
+    // await collector.addAsset({
+    //   appearance: item,
+    //   model: item.AppearanceCDF,
+    //   material: item.Material1 || item.Material2,
+    //   outDir: outDir,
+    //   outFile: [item.ItemID, 'AppearanceCDF'].join('-'),
+    // })
   }
 }
 
