@@ -203,6 +203,9 @@ export async function fixMaterials({ gltf, update, material, appearance, bakeApp
         const factor = (appearance.EmissiveIntensity || 0) / 10
         const color = hexToRgb(appearance.EmissiveColor, 1 / 255)
         mtl.emissiveFactor = [color.r * factor, color.g * factor, color.b * factor]
+      } else {
+        mtl.emissiveFactor = [1, 1, 1, 1]
+        logger.debug('EMISSIVE', 'fallback', mtl.emissiveFactor)
       }
     }
 
@@ -334,6 +337,47 @@ async function blendDiffuseMap({
   return outFile
 }
 
+async function blendEmissiveMap({
+  base,
+  mask,
+  outFile,
+}: {
+  base: string
+  mask: string
+  outFile: string
+}) {
+
+  const sBase = await sharp(base).raw().toBuffer({ resolveWithObject: true })
+  const sMask = await sharp(mask).raw().toBuffer({ resolveWithObject: true })
+
+  if (sBase.info.width !== sMask.info.width) {
+    logger.warn('base and mask texture size mismatch')
+    return null
+  }
+
+  const baseData = new Uint8ClampedArray(sBase.data)
+  const emitData = new Uint8ClampedArray(sMask.data)
+
+  for (let i = 0; i < baseData.length; i += sBase.info.channels) {
+    let albedoR = baseData[i + 0] / 255
+    let albedoG = baseData[i + 1] / 255
+    let albedoB = baseData[i + 2] / 255
+
+    let emitR = emitData[i + 0] / 255
+    let emitG = emitData[i + 1] / 255
+    let emitB = emitData[i + 2] / 255
+
+    baseData[i + 0] = (albedoR * emitR) * 255
+    baseData[i + 1] = (albedoG * emitG) * 255
+    baseData[i + 2] = (albedoB * emitB) * 255
+  }
+
+  logger.activity('write', outFile)
+  await sharp(baseData, {
+    raw: { width: sBase.info.width, height: sBase.info.height, channels: sBase.info.channels },
+  }).toFile(outFile)
+  return outFile
+}
 async function blendSpecularMap({
   base,
   mask,
