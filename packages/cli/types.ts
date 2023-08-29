@@ -275,6 +275,11 @@ export interface AppearanceMaskDefinition {
   MaskAGloss: number
   EmissiveColor: string
   EmissiveIntensity: number
+
+  RDyeSlotDisabled?: string
+  GDyeSlotDisabled?: string
+  BDyeSlotDisabled?: string
+  ADyeSlotDisabled?: string
 }
 
 export interface WeaponAppearanceDefinition extends AppearanceMaskDefinition {

@@ -91,11 +91,11 @@ export async function fixMaterials({ gltf, update, material, appearance, bakeApp
 
     logger.debug('mapDiffuse', mapDiffuse?.File)
     logger.debug('mapBumpmap', mapBumpmap?.File)
-    logger.debug('mapSmoothness', mapSmoothness?.File)  
+    logger.debug('mapSmoothness', mapSmoothness?.File)
     logger.debug('mapSpecular', mapSpecular?.File)
     logger.debug('mapCustom', mapCustom?.File)
     logger.debug('mapEmit', mapEmit?.File)
-    
+
     if (!mapSmoothness && mapBumpmap) {
       logger.debug('use mapBumpmap as mapSmoothness')
       mapSmoothness = mapBumpmap
@@ -112,12 +112,14 @@ export async function fixMaterials({ gltf, update, material, appearance, bakeApp
           appearance: appearance,
           outFile: cacheFile,
         })
-      }).catch((err) => {
-        logger.error(`failed to blend diffuse map\n\t${mapDiffuseFile}\n\t${mapCustom.File}\n\t${cacheFile}\n`, err)
-        return mapDiffuseFile
-      }).then((result) => {
-        return result || mapDiffuse?.File
       })
+        .catch((err) => {
+          logger.error(`failed to blend diffuse map\n\t${mapDiffuseFile}\n\t${mapCustom.File}\n\t${cacheFile}\n`, err)
+          return mapDiffuseFile
+        })
+        .then((result) => {
+          return result || mapDiffuse?.File
+        })
     }
 
     if (mapDiffuseFile) {
@@ -145,20 +147,24 @@ export async function fixMaterials({ gltf, update, material, appearance, bakeApp
           appearance: appearance,
           outFile: cacheFile,
         })
-      }).catch((err) => {
-        logger.error(`failed to blend specular map\n\t${mapSpecularFile}\n\t${mapCustom.File}\n\t${cacheFile}\n`, err)
-        return mapSpecularFile
-      }).then((result) => {
-        return result || mapSpecular?.File
       })
+        .catch((err) => {
+          logger.error(`failed to blend specular map\n\t${mapSpecularFile}\n\t${mapCustom.File}\n\t${cacheFile}\n`, err)
+          return mapSpecularFile
+        })
+        .then((result) => {
+          return result || mapSpecular?.File
+        })
     }
 
     if (mapSpecularFile) {
-      logger.info(mapSpecularFile)
       if (mapSmoothness && fs.existsSync(replaceExtname(mapSmoothness.File, '.a.png'))) {
         const glossFile = replaceExtname(mapSmoothness.File, '.a.png')
         const hashContent = [mapSpecularFile, glossFile].join('-')
-        const cacheFile = replaceExtname(appendToFilename(mapSmoothness.File, appearanceFileSuffix(hashContent)), '.a.png')
+        const cacheFile = replaceExtname(
+          appendToFilename(mapSmoothness.File, appearanceFileSuffix(hashContent)),
+          '.a.png',
+        )
         mapSpecularFile = await withFileCache(cacheFile, update, () => {
           return mergeSpecularGloss({
             specFile: mapSpecularFile,
@@ -170,7 +176,6 @@ export async function fixMaterials({ gltf, update, material, appearance, bakeApp
           return mapSpecularFile
         })
       }
-      logger.info(mapSpecularFile)
       const indexDiffuse = mtl.pbrMetallicRoughness.baseColorTexture
       const indexSpecGloss = await cache.addTextureFromFile(mapSpecularFile)
       gltf.extensionsUsed = append(gltf.extensionsUsed, 'KHR_materials_pbrSpecularGlossiness')
@@ -194,6 +199,7 @@ export async function fixMaterials({ gltf, update, material, appearance, bakeApp
       }
       if (appearance?.EmissiveColor) {
         // max value of EmissiveIntensity is 10
+        logger.debug('EMISSIVE', appearance.EmissiveIntensity, appearance.EmissiveColor)
         const factor = (appearance.EmissiveIntensity || 0) / 10
         const color = hexToRgb(appearance.EmissiveColor, 1 / 255)
         mtl.emissiveFactor = [color.r * factor, color.g * factor, color.b * factor]
@@ -208,7 +214,7 @@ export async function fixMaterials({ gltf, update, material, appearance, bakeApp
   }
 }
 
-export async function attachMaskTexture({ gltf, material }: { gltf: GLTF.IGLTF, material: MaterialObject[] }) {
+export async function attachMaskTexture({ gltf, material }: { gltf: GLTF.IGLTF; material: MaterialObject[] }) {
   if (!gltf.materials) {
     return
   }
@@ -221,12 +227,11 @@ export async function attachMaskTexture({ gltf, material }: { gltf: GLTF.IGLTF, 
       logger.debug('attach mask', mapCustom.File)
       mtl.extras = mtl.extras || {}
       mtl.extras.maskTexture = {
-        index: await cache.addTextureFromFile(mapCustom.File)
+        index: await cache.addTextureFromFile(mapCustom.File),
       }
     }
   }
 }
-
 
 function append(array: string[], value: string) {
   array = array || []
@@ -254,18 +259,19 @@ async function blendDiffuseMap({
   appearance: Appearance
   outFile: string
 }) {
-  const maskR = appearance.MaskROverride || appearance.MaskR || 0
-  const maskG = appearance.MaskGOverride || appearance.MaskG || 0
-  const maskB = appearance.MaskBOverride || appearance.MaskB || 0
-  if (!(maskR || maskG || maskB)) {
-    logger.debug('no diffuse mask override')
+  logger.debug('R', appearance.MaskROverride, appearance.MaskR, appearance.MaskRColor, appearance.RDyeSlotDisabled)
+  logger.debug('G', appearance.MaskGOverride, appearance.MaskG, appearance.MaskGColor, appearance.GDyeSlotDisabled)
+  logger.debug('B', appearance.MaskBOverride, appearance.MaskB, appearance.MaskBColor, appearance.BDyeSlotDisabled)
+
+  let maskR = appearance.MaskR || 0
+  let maskG = appearance.MaskG || 0
+  let maskB = appearance.MaskB || 0
+  let maskA = appearance.MaskASpec || 0
+
+  if (!(maskR || maskG || maskB || maskA)) {
     return
   }
-
-  const maskColorR = appearance.MaskRColor
-  const maskColorG = appearance.MaskGColor
-  const maskColorB = appearance.MaskBColor
-  if (!(maskColorR || maskColorG || maskColorB)) {
+  if (!(appearance.MaskRColor || appearance.MaskGColor || appearance.MaskBColor)) {
     return null
   }
 
@@ -279,20 +285,46 @@ async function blendDiffuseMap({
 
   const baseData = new Uint8ClampedArray(sBase.data)
   const maskData = new Uint8ClampedArray(sMask.data)
-  const colR = hexToRgb(appearance.MaskRColor)
-  const colG = hexToRgb(appearance.MaskGColor)
-  const colB = hexToRgb(appearance.MaskBColor)
+  const colR = hexToRgb(appearance.MaskRColor, 1 / 255)
+  const colG = hexToRgb(appearance.MaskGColor, 1 / 255)
+  const colB = hexToRgb(appearance.MaskBColor, 1 / 255)
+  const colA = hexToRgb(appearance.MaskASpecColor, 1 / 255)
 
   for (let i = 0; i < baseData.length; i += sBase.info.channels) {
-    const x = maskData[i + 0] / 255
-    const y = maskData[i + 1] / 255
-    const z = maskData[i + 2] / 255
-    const r = x * colR.r + y * colG.r + z * colB.r
-    const g = x * colR.g + y * colG.g + z * colB.g
-    const b = x * colR.b + y * colG.b + z * colB.b
-    baseData[i + 0] = lerp(baseData[i + 0], r, maskR || 0)
-    baseData[i + 1] = lerp(baseData[i + 1], g, maskG || 0)
-    baseData[i + 2] = lerp(baseData[i + 2], b, maskB || 0)
+    const weightR = (maskData[i + 0] / 255) * maskR
+    const weightG = (maskData[i + 1] / 255) * maskG
+    const weightB = (maskData[i + 2] / 255) * maskB
+    const weightA = (maskData[i + 3] / 255) * maskA
+
+    let albedoR = baseData[i + 0] / 255
+    let albedoG = baseData[i + 1] / 255
+    let albedoB = baseData[i + 2] / 255
+    let albedoA = baseData[i + 3] / 255
+
+    if (weightR) {
+      albedoR = lerp(albedoR, colR.r, weightR)
+      albedoG = lerp(albedoG, colR.g, weightR)
+      albedoB = lerp(albedoB, colR.b, weightR)
+    }
+    if (weightG) {
+      albedoR = lerp(albedoR, colG.r, weightG)
+      albedoG = lerp(albedoG, colG.g, weightG)
+      albedoB = lerp(albedoB, colG.b, weightG)
+    }
+    if (weightB) {
+      albedoR = lerp(albedoR, colB.r, weightB)
+      albedoG = lerp(albedoG, colB.g, weightB)
+      albedoB = lerp(albedoB, colB.b, weightB)
+    }
+    if (weightA) {
+      albedoR = lerp(albedoR, colA.r, weightA)
+      albedoG = lerp(albedoG, colA.g, weightA)
+      albedoB = lerp(albedoB, colA.b, weightA)
+    }
+
+    baseData[i + 0] = albedoR * 255
+    baseData[i + 1] = albedoG * 255
+    baseData[i + 2] = albedoB * 255
   }
 
   logger.activity('write', outFile)
@@ -313,6 +345,7 @@ async function blendSpecularMap({
   appearance: Appearance
   outFile: string
 }): Promise<string> {
+  logger.debug('A', appearance.MaskASpec, appearance.MaskASpecColor, appearance.ADyeSlotDisabled)
   if (!appearance.MaskASpec) {
     return null
   }
@@ -330,15 +363,24 @@ async function blendSpecularMap({
 
   const baseData = new Uint8ClampedArray(sBase.data)
   const maskData = new Uint8ClampedArray(sMask.data)
-  const colA = hexToRgb(appearance.MaskASpecColor)
+  const tintColor = hexToRgb(appearance.MaskASpecColor, 1 / 255)
 
   for (let i = 0; i < baseData.length; i += sBase.info.channels) {
-    const r = (maskData[i + 3] / 255) * colA.r
-    const g = (maskData[i + 3] / 255) * colA.g
-    const b = (maskData[i + 3] / 255) * colA.b
-    baseData[i + 0] = lerp(baseData[i + 0], r, appearance.MaskASpec)
-    baseData[i + 1] = lerp(baseData[i + 1], g, appearance.MaskASpec)
-    baseData[i + 2] = lerp(baseData[i + 2], b, appearance.MaskASpec)
+    const weight = maskData[i + 3] / 255
+
+    let specR = baseData[i + 0] / 255
+    let specG = baseData[i + 1] / 255
+    let specB = baseData[i + 2] / 255
+
+    if (appearance.MaskASpec) {
+      specR = lerp(specR, tintColor.r, appearance.MaskASpec)
+      specG = lerp(specG, tintColor.g, appearance.MaskASpec)
+      specB = lerp(specB, tintColor.b, appearance.MaskASpec)
+    }
+
+    baseData[i + 0] = specR * 255 * weight
+    baseData[i + 1] = specG * 255 * weight
+    baseData[i + 2] = specB * 255 * weight
   }
 
   logger.activity('write', outFile)
@@ -406,7 +448,10 @@ function lerp(a: number, b: number, t: number) {
 }
 
 async function withFileCache(file: string, update: boolean, fn: () => Promise<any>): Promise<string> {
-  if (!fs.existsSync(file) && update) {
+  if (fs.existsSync(file) && update) {
+    fs.unlinkSync(file)
+  }
+  if (!fs.existsSync(file) || update) {
     logger.debug('update', file)
     await fn()
   }
@@ -444,6 +489,6 @@ function textureCache(gltf: GLTF.IGLTF) {
   }
   return {
     addTexture: addTexture,
-    addTextureFromFile: addTextureFromFile
+    addTextureFromFile: addTextureFromFile,
   }
 }
