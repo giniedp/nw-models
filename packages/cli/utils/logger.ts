@@ -4,6 +4,7 @@ export type COLOR = 'black' | 'red' | 'green' | 'yellow' | 'blue' | 'magenta' | 
 let isEnabled = !!process.env.NW_MODELS_VERBOSE
 
 export const logger = {
+  ansi: c,
   activity: (tag: string, ...msg: any[]) => isEnabled ? console.log(c.magenta(tag), ...msg) : null,
   info: (...msg: any[]) => isEnabled ? console.log(c.bgGreen.black('[INFO]'), ...msg) : null,
   success: (...msg: any[]) => isEnabled ? console.log(c.bgGreen.black('[SUCCESS]'), ...msg) : null,
@@ -22,5 +23,6 @@ export const logger = {
   },
   get isVerbose() {
     return isEnabled
-  }
+  },
+  
 }

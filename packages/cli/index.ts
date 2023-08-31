@@ -6,22 +6,24 @@ import * as path from 'path'
 import * as cp from 'child_process'
 
 import {
-  byIdFilter,
   collectAssets,
   collectMaterials,
   collectModels,
   collectTextures,
   filterAssetsBySkinName,
   filterAssetsModelMaterialHash,
+  isInListFilter,
+  matchesAnyInList,
   readTables,
 } from './collect-assets'
 import { GAME_DIR, MODELS_DIR, SLICES_DIR, TABLES_DIR, UNPACK_DIR } from './env'
 import { datasheetConverter } from './tools/datasheet-converter'
 import { pakExtractor } from './tools/pak-extractor'
-import { ModelAsset } from './types'
+import { ItemAppearanceDefinition, ModelAsset } from './types'
 import { logger, spawn, wrapError, writeFile } from './utils'
 import { runTasks } from './worker'
 import { objectStreamConverter } from './tools/object-stream-converter'
+import { sumBy, uniq } from 'lodash'
 
 program
   .command('unpack')
@@ -99,10 +101,15 @@ program
   .requiredOption('-d, --tables [tablesDir]', 'Path to the tables directory', TABLES_DIR)
   .requiredOption('-s, --slices [slicesDir]', 'Path to the slices directory', SLICES_DIR)
   .requiredOption('-o, --output [outputDir]', 'Output Path to the output directory', MODELS_DIR)
-  .option('-id, --id <appearanceId>', 'Filter by appearance id (may be part of ID)')
-  .option('-hash, --hash <md5Hash>', 'Filter by md5 hash')
-  .option('-skin, --skinFile <skinFileName>', 'Filter by skin file name (may be part of name)')
+  .option('-id, --id <appearanceId>', 'Filter by appearance id (may be substring)')
+  .option('-iid, --itemId <itemId>', 'Filter by item id (may be substring)')
+  .option('-hash, --hash <md5Hash>', 'Filter by md5 hash (must be exact)')
+  .option('-skin, --skinFile <skinFileName>', 'Filter by skin file name (may be substring)')
   .option('-u, --update', 'Ignores and overrides previous export')
+  .option('--draco', 'Enables Draco compression (default is disabled)')
+  .option('--webp', 'Converts textures to wepb before embedding into model (default is kept png)')
+  .option('--ktx', 'Compresses textures with ktx tools (KTX Tools must be installed)')
+  .option('--glb', 'Exports binary GLTF .glb files (default is JSON .gltf)')
   .option('-t, --threads <threadCount>', 'Number of threads', String(cpus().length))
   .option(
     '-ts, --texture-size <textureSize>',
@@ -112,39 +119,74 @@ program
   .option('--verbose', 'Enables log output (automatically enabled if threads is 0)')
   .action(async (opts) => {
     logger.verbose(true)
-    logger.debug('convert', JSON.stringify(opts, null, 2))
+    logger.debug('convert', opts)
 
     const input: string = opts.input
     const output: string = opts.output
     const tablesDir: string = opts.tables
     const slicesDir: string = opts.slices
     const id: string = opts.id
+    const itemId: string = opts.itemId
     const skinFile: string = opts.skinFile
     const hash: string = opts.hash
     const update: boolean = opts.update
+    const binary: boolean = opts.glb
+    const draco: boolean = opts.draco
+    const webp: boolean = opts.webp
+    const ktx: boolean = opts.ktx
     const threads: number = Number(opts.threads) || 0
     const verbose: boolean = opts.verbose ?? !threads
     const textureSize: number = Number(opts.textureSize) || null
 
     logger.info('Resolving available assets')
-    const tables = await readTables({ tablesDir: tablesDir })
+    const tables = await readTables({ tablesDir: tablesDir }).then((data) => {
+
+      if (itemId) {
+        const itemIds = itemId.split(',')
+        data.items = data.items.filter(matchesAnyInList('ItemID', itemIds))
+        data.housingItems = data.housingItems.filter(matchesAnyInList('HouseItemID', itemIds))
+
+        const appearanceIds = uniq(data.items.map((it) => [
+          it.ArmorAppearanceF,
+          it.ArmorAppearanceM,
+          it.WeaponAppearanceOverride,
+        ]).flat(1)).filter((it) => !!it).map((it) => it.toLowerCase())
+
+        data = {
+          ...data,
+          itemAppearances: data.itemAppearances.filter(isInListFilter('ItemID', appearanceIds)),
+          weaponAppearances: data.weaponAppearances.filter(isInListFilter('WeaponAppearanceID', appearanceIds)),
+          instrumentAppearances: data.instrumentAppearances.filter(isInListFilter('WeaponAppearanceID', appearanceIds)),
+          weapons: data.weapons.filter(isInListFilter('WeaponID', appearanceIds)),
+        }
+      }
+
+      if (id) {
+        const ids = id.split(',')
+        data = {
+          ...data,
+          housingItems: data.housingItems.filter(matchesAnyInList('HouseItemID', ids)),
+          itemAppearances: data.itemAppearances.filter(matchesAnyInList('ItemID', ids)),
+          weaponAppearances: data.weaponAppearances.filter(matchesAnyInList('WeaponAppearanceID', ids)),
+          instrumentAppearances: data.instrumentAppearances.filter(matchesAnyInList('WeaponAppearanceID', ids)),
+          weapons: data.weapons.filter(matchesAnyInList('WeaponID', ids)),
+        }
+      }
+
+      return data
+    })
+
     const assets = await collectAssets({
-      housingItems: tables.housingItems.filter(byIdFilter('HouseItemID', id)),
-      itemAppearances: tables.itemAppearances.filter(byIdFilter('ItemID', id)),
-      weaponAppearances: tables.weaponAppearances.filter(byIdFilter('WeaponAppearanceID', id)),
-      instrumentAppearances: tables.instrumentAppearances.filter(byIdFilter('WeaponAppearanceID', id)),
-      weapons: tables.weapons.filter(byIdFilter('WeaponID', id)),
+      ...tables,
       sourceRoot: input,
       slicesRoot: slicesDir,
+      extname: binary ? '.glb' : '.gltf'
+    }).then((list) => {
+      list = filterAssetsBySkinName(skinFile, list)
+      list = filterAssetsModelMaterialHash(hash, list)
+      return list
     })
-      .then((list) => {
-        list = filterAssetsBySkinName(skinFile, list)
-        return list
-      })
-      .then((list) => {
-        list = filterAssetsModelMaterialHash(hash, list)
-        return list
-      })
+
     const models = await collectModels({
       sourceRoot: input,
       assets: assets,
@@ -158,11 +200,15 @@ program
       assets: assets,
     })
 
-    logger.info({
-      models: models.length,
-      assets: assets.length,
-      textures: textures.length,
-    })
+    logger.info(
+      [
+        '',
+        `    assets: ${logger.ansi.yellow(String(assets.length))}`,
+        `    models: ${logger.ansi.yellow(String(models.length))}`,
+        `  textures: ${logger.ansi.yellow(String(textures.length))}`,
+        ``,
+      ].join('\n'),
+    )
 
     logger.verbose(true)
     logger.info('Step 1/4: Convert and copy textures')
@@ -204,11 +250,11 @@ program
     await runTasks({
       threads: threads,
       taskName: 'preprocessModel',
-      tasks: models.map(({ model, material, modelMaterialHash }) => {
+      tasks: models.map(({ model, material, hash }) => {
         return {
           sourceRoot: input,
           targetRoot: output,
-          modelMaterialHash: modelMaterialHash,
+          hash: hash,
           update,
           model: model,
           material: material,
@@ -228,6 +274,10 @@ program
           sourceRoot: input,
           targetRoot: output,
           update,
+          binary,
+          webp,
+          draco,
+          ktx
         }
       }),
     })
@@ -255,19 +305,37 @@ program
 program.parse(process.argv)
 
 async function writeStats({ outDir, assets }: { assets: ModelAsset[]; outDir: string }) {
-  const stats = assets
-    .map((item) => {
-      const modelFile = path.join(outDir, item.outDir, item.outFile).toLowerCase()
-      const modelExists = fs.existsSync(modelFile)
-      const modelSize = modelExists ? fs.statSync(modelFile).size : 0
-      return {
-        ...item,
-        filePath: modelFile,
-        fileSize: modelSize,
-        hasModel: modelExists && modelSize > 0,
-      }
-    })
-    .flat()
+  let assetCount = assets.length
+  let modelCount = 0
+  let modelMissing = 0
+  let sizeInBytes = 0
+
+  const stats = assets.map((item) => {
+    const modelFile = path.join(outDir, item.outDir, item.outFile).toLowerCase()
+    const modelExists = fs.existsSync(modelFile)
+    const modelSize = modelExists ? fs.statSync(modelFile).size : 0
+    modelCount += modelExists ? 1 : 0
+    modelMissing += modelExists ? 0 : 1
+    sizeInBytes += modelSize
+
+    return {
+      ...item,
+      filePath: modelFile,
+      fileSize: modelSize,
+      hasModel: modelExists && modelSize > 0,
+    }
+  })
+
+  logger.info(
+    [
+      ``,
+      `       assets: ${logger.ansi.yellow(String(assetCount))}`,
+      `    converted: ${logger.ansi.yellow(String(modelCount))}`,
+      `       failed: ${modelMissing ? logger.ansi.red(String(modelMissing)) : logger.ansi.green(String(modelMissing))}`,
+      `         size: ${logger.ansi.yellow(String(Math.round(sizeInBytes / 1024 / 1024)))} MB`,
+      ``,
+    ].join('\n'),
+  )
 
   await writeFile(path.join(outDir, 'stats.json'), JSON.stringify(stats, null, 2), {
     encoding: 'utf-8',

@@ -4,72 +4,76 @@ export interface TransformContext {
   update: boolean
 }
 
-export interface ModelAsset {
-  appearance?: Appearance
+export interface ModelMeshAsset {
   model: string
   material: string
-  modelMaterialHash: string
+  hash: string
+}
+
+export interface ModelAsset {
+  appearance?: Appearance
+  meshes: ModelMeshAsset[]
   outDir: string
   outFile: string
 }
 export interface Housingitems {
-  AttributionId?:              string;
-  AudioCreated:                string;
-  AudioPickup:                 string;
-  AudioPlace:                  string;
-  AudioUse:                    string;
-  BindOnPickup:                boolean;
-  ColorFamilies?:              string;
-  ConfirmBeforeUse:            boolean;
-  ConsumeOnUse:                boolean;
-  CraftingRecipe?:             string;
-  "DEV-FurnitureSet"?:         string;
-  DeathDropPercentage:         number;
-  Description:                 string;
-  ExcludeFromGame:             number;
-  ForceRarity:                 number;
-  HiResIconPath?:              string;
-  HouseItemID:                 string;
-  HousingStatusEffect?:        string;
-  "HousingTag1 Placed"?:       string;
-  "HousingTag2 Points"?:       string;
-  "HousingTag3 Limiter"?:      string;
-  "HousingTag5 Buffs"?:        string;
-  HousingTags?:                string;
-  "HowToOptain (Primarily)"?:  string;
-  IconPath?:                   string;
-  InteractionAnimationID?:     string;
-  IsEntitlement?:              string;
-  IsRepairable:                boolean;
-  IsSalvageable:               boolean;
-  ItemRarity?:                 string;
-  ItemType:                    string;
-  ItemTypeDisplayName?:        string;
-  MaxPotentialPoints:          number;
-  MaxStackSize:                number;
-  Name:                        string;
-  Nonremovable:                boolean;
-  Notes?:                      string;
-  PlacementGridDisplaySize?:   string;
-  PointModifier:               number;
-  PrefabPath:                  string;
-  "Primary Color"?:            string;
-  RankingPoints:               number;
+  AttributionId?: string;
+  AudioCreated: string;
+  AudioPickup: string;
+  AudioPlace: string;
+  AudioUse: string;
+  BindOnPickup: boolean;
+  ColorFamilies?: string;
+  ConfirmBeforeUse: boolean;
+  ConsumeOnUse: boolean;
+  CraftingRecipe?: string;
+  "DEV-FurnitureSet"?: string;
+  DeathDropPercentage: number;
+  Description: string;
+  ExcludeFromGame: number;
+  ForceRarity: number;
+  HiResIconPath?: string;
+  HouseItemID: string;
+  HousingStatusEffect?: string;
+  "HousingTag1 Placed"?: string;
+  "HousingTag2 Points"?: string;
+  "HousingTag3 Limiter"?: string;
+  "HousingTag5 Buffs"?: string;
+  HousingTags?: string;
+  "HowToOptain (Primarily)"?: string;
+  IconPath?: string;
+  InteractionAnimationID?: string;
+  IsEntitlement?: string;
+  IsRepairable: boolean;
+  IsSalvageable: boolean;
+  ItemRarity?: string;
+  ItemType: string;
+  ItemTypeDisplayName?: string;
+  MaxPotentialPoints: number;
+  MaxStackSize: number;
+  Name: string;
+  Nonremovable: boolean;
+  Notes?: string;
+  PlacementGridDisplaySize?: string;
+  PointModifier: number;
+  PrefabPath: string;
+  "Primary Color"?: string;
+  RankingPoints: number;
   RankingPointsDuplicateLimit: number;
-  RankingPointsNegativeLimit:  number;
-  RepairDustModifier:          number;
-  RepairRecipe?:               string;
-  SalvageGameEventID?:         string;
-  SalvageRecipe?:              string;
-  SalvageResources:            boolean;
-  StorageBonus:                number;
-  Tier:                        number;
-  TradingCategory?:            string;
-  TradingFamily?:              string;
-  TradingGroup?:               string;
-  UIHousingCategory?:          string;
-  UiItemClass:                 string;
-  Weight:                      number;
+  RankingPointsNegativeLimit: number;
+  RepairDustModifier: number;
+  RepairRecipe?: string;
+  SalvageGameEventID?: string;
+  SalvageRecipe?: string;
+  SalvageResources: boolean;
+  StorageBonus: number;
+  Tier: number;
+  TradingCategory?: string;
+  TradingFamily?: string;
+  TradingGroup?: string;
+  UIHousingCategory?: string;
+  UiItemClass: string;
+  Weight: number;
 }
 export interface ItemDefinitionMaster {
   AcquisitionNotificationId?: number
@@ -354,26 +358,6 @@ export interface InstrumentAppearance extends AppearanceMaskDefinition {
 
 export type Appearance = AppearanceMaskDefinition &
   (WeaponAppearanceDefinition | ItemAppearanceDefinition | InstrumentAppearance)
-
-export interface StatRow {
-  itemId: string
-  itemIdNormalized?: string
-  itemType: string
-  s3Path?: string
-  model: string
-  size: number
-  material: boolean
-  tags: string[]
-  log: string
-}
-
-export interface StatsFile {
-  rows: StatRow[]
-  infos: {
-    label: string
-    value: number | string
-  }[]
-}
 
 export function getAppearanceId(appearance: Appearance | AppearanceMaskDefinition) {
   return (

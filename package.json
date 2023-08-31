@@ -24,6 +24,7 @@
     "node": ">=18"
   },
   "devDependencies": {
+    "@gltf-transform/cli": "^3.5.1",
     "@gltf-transform/core": "^3.5.1",
     "@gltf-transform/extensions": "^3.5.1",
     "@gltf-transform/functions": "^3.5.1",
@@ -59,6 +60,7 @@
     "daisyui": "^3.6.1",
     "dom-parser": "^0.1.6",
     "dotenv": "^16.3.1",
+    "draco3dgltf": "^1.5.6",
     "env-cmd": "^10.1.0",
     "fast-glob": "^3.3.1",
     "fast-xml-parser": "^4.2.7",
@@ -91,6 +93,6 @@
     "webpack-dev-server": "^4.15.1",
     "webpack-node-externals": "^3.0.0",
     "workerpool": "^6.4.0",
-    "zod": "^3.21.4"
+    "zod": "^3.22.2"
   }
 }

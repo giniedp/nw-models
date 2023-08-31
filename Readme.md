@@ -34,9 +34,10 @@ If you have not unpacked the game data yet, run
 yarn unpack
 ```
 
-This will unpack game data (models, textures, datasheets) into the unpack folder (see the `.env` file) 
+This will unpack game data (models, textures, datasheets) into the unpack folder (see the `.env` file)
 
 If you have not converted datatables to JSON yet, run
+
 ```
 yarn convert-tables
 ```
@@ -44,8 +45,9 @@ yarn convert-tables
 If you plan to extract housing items, run
 
 > HINT: this is WIP, housing items are not supported yet
+
 ```
-yarn convert-clices
+yarn convert-slices
 ```
 
 # Convert models
@@ -108,7 +110,9 @@ For example the file located at
 ```
 out/models/itemappearances/m_voidbentheavy_chest-skin1.gltf
 ```
-would be from 
+
+would be from
+
 - data sheet: `javelindata_itemappearancedefinitions.json`
 - object with `ItemId: m_voidbentheavy_chest`
 - the model at property `Skin1`

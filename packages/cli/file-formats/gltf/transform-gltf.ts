@@ -1,50 +1,96 @@
-import { Format, NodeIO } from '@gltf-transform/core'
+import { Document, Format, NodeIO, Transform } from '@gltf-transform/core'
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
-import { prune } from '@gltf-transform/functions'
+import { draco, prune, textureCompress, unpartition } from '@gltf-transform/functions'
+
+import draco3d from 'draco3dgltf'
+import * as path from 'path'
+import sharp from 'sharp'
 import { Appearance } from '../../types'
-import { writeFile } from '../../utils/file-utils'
+import { writeFile, writeFileBinary } from '../../utils/file-utils'
 import { logger } from '../../utils/logger'
 import { MaterialObject } from '../mtl'
+import { nwAppearance } from './extensions/nw-appearance'
+import { NwAppearanceExtension } from './extensions/nw-appearance-extension'
 import { computeNormals } from './transform/compute-normals'
-import { attachMaskTexture, fixMaterials } from './transform/fix-materials'
+import { mergeScenes } from './transform/merge-scenes'
 import { removeSkinning } from './transform/remove-skinning'
 import { removeVertexColor } from './transform/remove-vertex-color'
 
 export async function transformGltf({
-  input,
-  material,
+  meshes,
   appearance,
   output,
   update,
+  withDraco,
+  withWebp,
+  withKtx
 }: {
-  input: string
-  material: MaterialObject[]
+  meshes: Array<{
+    model: string
+    material: MaterialObject[]
+  }>
   appearance: Appearance
   output: string
   update: boolean
+  withDraco?: boolean
+  withWebp?: boolean
+  withKtx?: boolean
 }) {
-  const io = new NodeIO().registerExtensions(ALL_EXTENSIONS)
-  const jsonDocument = await io.readAsJSON(input)
-  // TODO: make this a transform step
-  await fixMaterials({
-    material,
-    appearance,
-    update,
-    gltf: jsonDocument.json,
-    bakeAppearance: true,
+  const io = new NodeIO().registerExtensions([...ALL_EXTENSIONS, NwAppearanceExtension]).registerDependencies({
+    'draco3d.decoder': await draco3d.createDecoderModule(), // Optional.
+    'draco3d.encoder': await draco3d.createEncoderModule(), // Optional.
   })
 
-  const document = await io.readJSON(jsonDocument)
-  document.setLogger(logger)
-  await document.transform(
-    removeSkinning(),
-    removeVertexColor(),
-    computeNormals({
-      overwrite: true,
-    }),
-    prune({}),
-  )
+  let document: Document
+  for (const mesh of meshes) {
+    const doc = await transformFile({
+      input: mesh.model,
+      material: mesh.material,
+      appearance: appearance,
+    })
+    if (!document) {
+      document = doc
+    } else {
+      document.merge(doc)
+    }
+  }
 
+  const transforms: Transform[] = []
+
+  if (meshes.length > 1) {
+    transforms.push(mergeScenes())
+  }
+
+  transforms.push(unpartition())
+  if (withDraco) {
+    transforms.push(draco({}))
+  }
+
+  if (withWebp) {
+    transforms.push(textureCompress({
+      encoder: sharp,
+      targetFormat: 'webp',
+      // resize: [1024, 2024],
+    }))
+  } else if (withKtx) {
+    // TODO: 
+    // const slotsUASTC = '{normalTexture,occlusionTexture,metallicRoughnessTexture}';
+    // transforms.push(
+    //   toktx({ mode: Mode.UASTC, slots: slotsUASTC, level: 4, rdo: 4, zstd: 18 }),
+    //   toktx({ mode: Mode.ETC1S, quality: 255 }),
+    // );
+  }
+
+  await document.transform(...transforms)
+
+  if (path.extname(output) === '.glb') {
+    await writeGlb(io, output, document)
+  } else {
+    await writeGltf(io, output, document)
+  }
+}
+
+async function writeGltf(io: NodeIO, output: string, document: Document) {
   const result = await io.writeJSON(document, {
     format: Format.GLTF,
   })
@@ -54,15 +100,45 @@ export async function transformGltf({
   for (const buf of result.json.buffers || []) {
     buf.uri = `data:application/octet-stream;base64,` + Buffer.from(result.resources[buf.uri]).toString('base64')
   }
-  // HINT: prune cleans up the file and removes unused textures
-  // thus we have to add custom textures after prune
-  await attachMaskTexture({
-    gltf: result.json,
-    material: material
-  })
-
   await writeFile(output, JSON.stringify(result.json, null, 2), {
     createDir: true,
     encoding: 'utf-8',
   })
+}
+
+async function writeGlb(io: NodeIO, output: string, document: Document) {
+  await document.transform(unpartition())
+  const binary = await io.writeBinary(document)
+  await writeFileBinary(output.replace('.gltf', '.glb'), binary, {
+    createDir: true,
+  })
+}
+
+async function transformFile({
+  input,
+  material,
+  appearance,
+}: {
+  input: string
+  material: MaterialObject[]
+  appearance: Appearance
+}) {
+  const io = new NodeIO().registerExtensions([...ALL_EXTENSIONS, NwAppearanceExtension])
+  const jsonDocument = await io.readAsJSON(input)
+  const document = await io.readJSON(jsonDocument)
+  document.setLogger(logger)
+
+  await document.transform(removeSkinning(),
+    removeVertexColor(),
+    computeNormals({
+      overwrite: true,
+    }),
+    nwAppearance({
+      appearance,
+      materials: material,
+      bake: true,
+    }),
+    prune({}),)
+
+  return document
 }

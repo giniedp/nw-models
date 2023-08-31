@@ -10,8 +10,7 @@
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "declaration": false,
-    "skipLibCheck": true,
+    "skipLibCheck": true
   },
-  "include": ["./**/*.ts"],
-
+  "include": ["./**/*.ts"]
 }

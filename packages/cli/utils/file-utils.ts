@@ -25,6 +25,14 @@ export async function writeFile(input: string, data: string, options: { createDi
   })
 }
 
+export async function writeFileBinary(input: string, data: Uint8Array, options: { createDir?: boolean }) {
+  if (options?.createDir) {
+    await mkdir(path.dirname(input), { recursive: true })
+  }
+  logger.activity('write', input)
+  return fs.promises.writeFile(input, data)
+}
+
 export function replaceExtname(file: string, extname: string) {
   const dir = path.dirname(file)
   const base = path.basename(file, path.extname(file))
