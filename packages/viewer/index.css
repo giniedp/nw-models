@@ -1,3 +1,8 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+canvas {
+  height: 100%;
+  max-height: 100%;
+}

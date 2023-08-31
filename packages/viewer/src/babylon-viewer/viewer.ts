@@ -39,8 +39,8 @@ export interface DyeChannel {
   enabled: boolean
 }
 
-export type BabylonViewer = ReturnType<typeof showBabylonViewer>
-export function showBabylonViewer({ el, modelUrl, dyeR, dyeG, dyeB, dyeA, debugMask, appearance }: BabylonViewerOptions) {
+export type Viewer = ReturnType<typeof initViewer>
+export function initViewer({ el, modelUrl, dyeR, dyeG, dyeB, dyeA, debugMask, appearance }: BabylonViewerOptions) {
 
 
   const viewer = new DefaultViewer(el, {

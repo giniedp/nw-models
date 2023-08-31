@@ -1,9 +1,12 @@
 <script lang="ts">
   import { derived, writable } from 'svelte/store'
   import DyePicker from './DyePicker.svelte'
-  import type { AppearanceDyeExtras, BabylonViewer } from './babylon-viewer/viewer'
-  import { showBabylonViewer } from './babylon-viewer/viewer'
   import type { DyeColor } from './dye-colors'
+
+  import { initViewer as bjsViewer, type AppearanceDyeExtras, type Viewer } from './babylon-viewer/viewer'
+  import { initViewer as pcViewer } from './playcanvas-viewer/init-viewer'
+
+  export let playcanvas = false
 
   export function show(modelUrl: string) {
     isOpen = true
@@ -31,9 +34,13 @@
   }
 
   function createViewer(parent: HTMLElement, modelUrl: string) {
-    const el = document.createElement('div')
-    parent.appendChild(el)
-    return showBabylonViewer({
+    const initViewer = playcanvas ? pcViewer : bjsViewer
+    let el = parent
+    if (!playcanvas) {
+      el = document.createElement('div')
+      parent.appendChild(el)
+    }
+    return initViewer({
       el,
       modelUrl,
       dyeR,
@@ -52,7 +59,7 @@
   let isOpen = false
   let containerEl: HTMLElement
   let viewerEl: HTMLElement
-  let viewer: BabylonViewer | null
+  let viewer: Viewer | null
 
   const dyeR = writable<DyeColor | null>(null)
   const dyeG = writable<DyeColor | null>(null)
@@ -69,11 +76,11 @@
 </script>
 
 {#if isOpen}
-  <div class="relative flex-1" bind:this={containerEl}>
-    <div bind:this={viewerEl} />
+  <div class="relative flex flex-col" bind:this={containerEl}>
+    <div bind:this={viewerEl} class="absolute inset-0" />
     <div class="flex flex-col gap-2 w-[200px] absolute top-4 right-4" style="z-index: 100">
       <button type="button" class="btn btn-primary btn-active" on:click={fullscreen}> Fullscreen </button>
-      <button type="button" class="btn btn-primary btn-active" on:click={close}> Close </button>
+      <!-- <button type="button" class="btn btn-primary btn-active" on:click={close}> Close </button> -->
       {#if $showDye}
         <DyePicker bind:color={$dyeR} disabled={$dyeRDisabled} />
         <DyePicker bind:color={$dyeG} disabled={$dyeGDisabled} />

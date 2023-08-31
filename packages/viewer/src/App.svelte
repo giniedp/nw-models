@@ -8,7 +8,8 @@
   let grid: Grid | null
   let gridApi: GridApi
   let colsApi: ColumnApi
-  let viewer: Viewer
+  let pcViewer: Viewer
+  let bjsViewer: Viewer
 
   onMount(async () => {
     bindGrid()
@@ -78,7 +79,8 @@
           const btn = document.createElement('button')
           btn.classList.add('btn', 'btn-info', 'btn-sm')
           btn.addEventListener('click', () => {
-            viewer.show(modelPath(data))
+            bjsViewer.show(modelPath(data))
+            pcViewer.show(modelPath(data))
           })
           btn.textContent = 'Viewer'
           el.append(btn)
@@ -99,11 +101,13 @@
   ]
 </script>
 
-<main class="flex flex-row absolute inset-0 ">
-  <div bind:this={gridEl} class="grid ag-theme-alpine-dark flex-1" />
-  <Viewer bind:this={viewer}></Viewer>
+<main class="flex flex-row absolute inset-0">
+  <div bind:this={gridEl} class="ag-theme-alpine-dark flex-1" />
+  <div class="flex-1 grid grid-cols-1 grid-rows-2 overflow-hidden">
+    <Viewer bind:this={bjsViewer} playcanvas={false} />
+    <Viewer bind:this={pcViewer} playcanvas={true} />
+  </div>
 </main>
 
 <style>
-  
 </style>

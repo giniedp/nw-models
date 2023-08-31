@@ -1,55 +1,19 @@
 import {
-  ASPECT_AUTO,
-  Application,
   Asset,
-  AssetListLoader,
-  CameraComponent,
-  CameraComponentSystem,
   Color,
-  ContainerHandler,
   Entity,
   FILLMODE_FILL_WINDOW,
-  GraphNode,
+  FILLMODE_KEEP_ASPECT,
   Keyboard,
   LAYERID_DEPTH,
-  LightComponentSystem,
   Mouse,
   RESOLUTION_AUTO,
-  RenderComponentSystem,
-  StandardMaterial,
-  TextureHandler,
   TouchDevice,
-  Vec3,
+  Vec3
 } from 'playcanvas'
-import { writable } from 'svelte/store'
 
-import type { DyeColor } from '../dye-colors'
 import { App } from './app'
 import { OrbitCamera, OrbitCameraInputKeyboard, OrbitCameraInputMouse, OrbitCameraInputTouch } from './orbit-camera'
-
-export interface PcViewerOptions {
-  el: HTMLElement
-  modelUrl: string
-}
-
-export interface AppearanceDyeExtras {
-  MaskRDyeOverride: number
-  MaskRDye: number
-  MaskGDyeOverride: number
-  MaskGDye: number
-  MaskBDyeOverride: number
-  MaskBDye: number
-  MaskASpecDye: number
-  RDyeSlotDisabled: string
-  GDyeSlotDisabled: string
-  BDyeSlotDisabled: string
-  ADyeSlotDisabled: string
-}
-
-export interface DyeChannel {
-  color: string
-  enabled: boolean
-}
 
 export type File = {
   filename: string
@@ -84,6 +48,9 @@ export class PlayCanvasViewer {
     app.scene.layers.remove(depthLayer)
     app.scene.layers.insertOpaque(depthLayer, 2)
 
+    app.setCanvasFillMode(FILLMODE_KEEP_ASPECT);
+    app.setCanvasResolution(RESOLUTION_AUTO);
+
     // create the orbit camera
     const camera = new Entity('Camera')
     camera.addComponent('camera', {
@@ -91,8 +58,9 @@ export class PlayCanvasViewer {
       frustumCulling: true,
       clearColor: new Color(0, 0, 0, 0),
     })
-    camera.translate(0, 0, 2)
-    camera.camera!.requestSceneColorMap(true)
+    camera.setPosition(0, 1, -2)
+    camera.lookAt(0, 1, 0)
+    //camera.camera!.requestSceneColorMap(true)
 
     const orbitCamera = new OrbitCamera(camera, 0.25)
     const orbitCameraInputMouse = new OrbitCameraInputMouse(app, orbitCamera)
@@ -109,6 +77,8 @@ export class PlayCanvasViewer {
       shadowBias: 0.2,
       shadowResolution: 2048,
     })
+    light.setPosition(0, 1, 1)
+    light.lookAt(0, 0, 0)
     app.root.addChild(light)
 
     this.sceneRoot = new Entity('sceneRoot', app)
@@ -116,15 +86,6 @@ export class PlayCanvasViewer {
 
     const debugRoot = new Entity('debugRoot', app)
     app.root.addChild(debugRoot)
-
-    
-    new ResizeObserver((it) => {
-      setTimeout(() => {
-        this.app.resizeCanvas()
-        this.app.renderNextFrame = true
-      })
-      
-    }).observe(canvas.parentElement!)
   }
 
   public resetScene() {
@@ -182,116 +143,5 @@ export class PlayCanvasViewer {
 
   public dispose() {
     this.app.destroy()
-  }
-}
-
-export type PcViewer = ReturnType<typeof showPcViewer>
-export function showPcViewer(options: PcViewerOptions) {
-  const appearance = writable<AppearanceDyeExtras | null>(null)
-  const dyeR = writable<DyeColor | null>(null)
-  const dyeG = writable<DyeColor | null>(null)
-  const dyeB = writable<DyeColor | null>(null)
-  const dyeA = writable<DyeColor | null>(null)
-  const debugMask = writable<boolean | null>(null)
-
-  const modelUrl = new URL(options.modelUrl, location.origin).toString()
-
-  const canvas = document.createElement('canvas')
-  canvas.style.width = '100%'
-  options.el.appendChild(canvas)
-  const viewer = new PlayCanvasViewer(canvas)
-  viewer
-    .loadGltf(
-      {
-        filename: 'model.gltf',
-        url: modelUrl,
-      },
-      [],
-    )
-    .then((asset) => {
-      viewer.addToScene(asset)
-    })
-  viewer.app.start()
-  viewer.app.on('update', function (dt) {
-    // if (entity) {
-    //   entity.rotate(0, 100 * dt, 0)
-    // }
-  })
-
-  return {
-    appearance,
-    dyeR,
-    dyeG,
-    dyeB,
-    dyeA,
-    debugMask,
-    dispose: () => {
-      viewer.dispose()
-      //   unsub?.()
-    },
-  }
-}
-
-function updateDyeChannel(options: {
-  //model: ViewerModel
-  appearance: AppearanceDyeExtras
-  dyeR: string | null
-  dyeG: string | null
-  dyeB: string | null
-  dyeA: string | null
-  debugMask: boolean
-}) {
-  //   options.model.meshes.forEach((mesh) => {
-  //     const dye = DyeMaterialPlugin.getPlugin(mesh.material)
-  //     if (!dye) {
-  //       return
-  //     }
-  //     if (!options.appearance) {
-  //       dye.isEnabled = false
-  //       return
-  //     }
-  //     dye.isEnabled = true
-  //     dye.debugMask = options.debugMask
-  //     if (options.dyeR) {
-  //       const rgb = hexToRgb(options.dyeR)
-  //       dye.dyeColorR.set(rgb.r, rgb.g, rgb.b, options.appearance.MaskRDye)
-  //     } else {
-  //       dye.dyeColorR.set(0, 0, 0, 0)
-  //     }
-  //     if (options.dyeG) {
-  //       const rgb = hexToRgb(options.dyeG)
-  //       dye.dyeColorG.set(rgb.r, rgb.g, rgb.b, options.appearance.MaskGDye)
-  //     } else {
-  //       dye.dyeColorG.set(0, 0, 0, 0)
-  //     }
-  //     if (options.dyeB) {
-  //       const rgb = hexToRgb(options.dyeB)
-  //       dye.dyeColorB.set(rgb.r, rgb.g, rgb.b, options.appearance.MaskBDye)
-  //     } else {
-  //       dye.dyeColorB.set(0, 0, 0, 0)
-  //     }
-  //     if (options.dyeA) {
-  //       const rgb = hexToRgb(options.dyeA)
-  //       dye.dyeColorA.set(rgb.r, rgb.g, rgb.b, options.appearance.MaskASpecDye)
-  //     } else {
-  //       dye.dyeColorA.set(0, 0, 0, 0)
-  //     }
-  //     dye.updateReflectivity()
-  //   })
-}
-
-function hexToRgb(hex: string) {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-  if (result) {
-    return {
-      r: parseInt(result[1], 16) / 255,
-      g: parseInt(result[2], 16) / 255,
-      b: parseInt(result[3], 16) / 255,
-    }
-  }
-  return {
-    r: 0,
-    g: 0,
-    b: 0,
   }
 }
