@@ -4,7 +4,8 @@ const path = require('path')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const Autoprefixer = require('autoprefixer')
 
-const MODELS_DIR = path.resolve(process.env.NW_MODELS_DIR || path.join('out', 'models'))
+const WORKSPACE = path.resolve(__dirname, '../../')
+const MODELS_DIR = path.resolve(WORKSPACE, process.env.NW_MODELS_DIR || path.join('out', 'models'))
 
 module.exports = (arg) => {
   const mode = arg.mode ?? 'development'
@@ -12,7 +13,7 @@ module.exports = (arg) => {
   return {
     mode: mode,
     entry: {
-      index: ['./packages/viewer/src/main.ts'],
+      index: ['./src/main.ts'],
     },
     devServer: {
       port: 9000,
@@ -23,7 +24,7 @@ module.exports = (arg) => {
     },
     plugins: [
       new HtmlWebpackPlugin({
-        template: './packages/viewer/index.html',
+        template: './index.html',
       }),
     ],
     resolve: {
@@ -35,7 +36,7 @@ module.exports = (arg) => {
       mainFields: ['svelte', 'browser', 'module', 'main'],
     },
     output: {
-      path: MODELS_DIR,
+      path: path.resolve(WORKSPACE, 'dist/viewer'),
       filename: '[name].js',
       publicPath: '/',
     },

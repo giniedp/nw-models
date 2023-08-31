@@ -4,6 +4,7 @@ import * as fs from 'fs'
 import { cpus } from 'os'
 import * as path from 'path'
 import * as cp from 'child_process'
+import express from 'express'
 
 import {
   collectAssets,
@@ -294,11 +295,15 @@ program
 program
   .command('viewer')
   .description('Starts the viewer server')
+  .requiredOption('-p, --port [port]', 'Models directory to serve', String(9000))
   .requiredOption('-d, --dir [directory]', 'Models directory to serve', MODELS_DIR)
+  .requiredOption('-vd, --viewerDir [viewerDir]', 'Viewer directory to serve', path.join(__dirname, '../viewer'))
   .action(async (options) => {
-    await spawn('http-server', [options.dir, '-c-1', '--no-dotfiles', '-o', 'index.html'], {
-      shell: true,
-      stdio: 'inherit',
+    const app = express()
+    app.use(express.static(options.dir))
+    app.use(express.static(options.viewerDir))
+    app.listen(options.port, () => {
+      console.log(`Viewer is served at http://localhost:${options.port}`)
     })
   })
 

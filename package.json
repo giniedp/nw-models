@@ -1,28 +1,28 @@
 {
+  "private": true,
   "name": "nw-models",
   "version": "1.0.0",
   "description": "New World Models Extractor",
   "scripts": {
-    "dev": "concurrently 'yarn:dev:cli' 'yarn:dev:viewer'",
-    "dev:cli": "tsc -p ./packages/cli/tsconfig.json -w",
-    "dev:viewer": "yarn webpack serve",
-    "build": "yarn build:cli && yarn build:viewer",
-    "build:cli": "tsc -p ./packages/cli/tsconfig.json",
-    "build:viewer": "yarn webpack",
-    "test": "globstar -- node --loader tsx --test \"packages/**/*.spec.ts\"",
+    "test": "yarn nx run-many --target=test",
+    "dev": "yarn nx run-many --target=dev",
+    "build": "yarn nx run-many --target=build",
     "unpack": "yarn cli unpack",
     "convert-tables": "yarn cli convert-tables",
     "convert-slices": "yarn cli convert-slices",
     "convert": "yarn cli convert",
     "clean": "yarn cli clean",
     "viewer": "yarn cli viewer",
-    "cli": "env-cmd -f .env node ./dist/cli/index.js"
+    "cli": "yarn build && env-cmd -f .env node ./dist/cli/index.js"
   },
   "author": "Ginie",
   "license": "MIT",
   "engines": {
     "node": ">=18"
   },
+  "workspaces": [
+    "packages/*"
+  ],
   "devDependencies": {
     "@gltf-transform/cli": "^3.5.1",
     "@gltf-transform/core": "^3.5.1",
@@ -62,16 +62,17 @@
     "dotenv": "^16.3.1",
     "draco3dgltf": "^1.5.6",
     "env-cmd": "^10.1.0",
+    "express": "^4.18.2",
     "fast-glob": "^3.3.1",
     "fast-xml-parser": "^4.2.7",
     "globstar": "^1.0.0",
     "html-webpack-plugin": "^5.5.3",
-    "http-server": "^14.1.1",
     "jsdom": "^22.1.0",
     "lodash": "^4.17.21",
     "node-color-log": "^10.0.2",
     "node-worker-threads-pool": "^1.5.1",
     "npmlog": "^7.0.1",
+    "nx": "16.7.4",
     "playcanvas": "^1.65.3",
     "postcss": "^8.4.28",
     "postcss-loader": "^7.3.3",

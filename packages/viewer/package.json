@@ -1,0 +1,17 @@
+{
+  "name": "@nw-models/viewer",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "yarn webpack serve",
+    "build": "yarn webpack"
+  },
+  "nx": {
+    "targets": {
+      "build": {
+        "outputs": [
+          "{workspaceRoot}/dist/viewer"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "@nw-models/cli",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "tsc -w",
+    "build": "tsc",
+    "test": "globstar -- node --loader tsx --test \"./**/*.spec.ts\""
+  },
+  "nx": {
+    "targets": {
+      "build": {
+        "outputs": [
+          "{workspaceRoot}/dist/cli"
+        ]
+      }
+    }
+  }
+}
