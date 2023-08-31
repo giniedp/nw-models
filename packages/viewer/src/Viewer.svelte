@@ -1,30 +1,13 @@
 <script lang="ts">
-  import type { BabylonViewer } from './babylon-viewer/viewer'
-  import { showBabylonViewer } from './babylon-viewer/viewer'
-  import { derived } from 'svelte/store'
-  import type { Writable, Readable } from 'svelte/store'
+  import { derived, writable } from 'svelte/store'
   import DyePicker from './DyePicker.svelte'
+  import type { AppearanceDyeExtras, BabylonViewer } from './babylon-viewer/viewer'
+  import { showBabylonViewer } from './babylon-viewer/viewer'
   import type { DyeColor } from './dye-colors'
 
   export function show(modelUrl: string) {
-    close()
-    dialogEl.showModal()
-    const el = document.createElement('div')
-    containerEl.appendChild(el)
-    viewer = showBabylonViewer({
-      el,
-      modelUrl,
-    })
-    dyeR = viewer.dyeR
-    dyeG = viewer.dyeG
-    dyeB = viewer.dyeB
-    dyeA = viewer.dyeA
-    debugMask = viewer.debugMask
-    dyeRDisabled = derived(viewer.appearance, (appearance) => appearance?.RDyeSlotDisabled !== '0')
-    dyeGDisabled = derived(viewer.appearance, (appearance) => appearance?.GDyeSlotDisabled !== '0')
-    dyeBDisabled = derived(viewer.appearance, (appearance) => appearance?.BDyeSlotDisabled !== '0')
-    dyeADisabled = derived(viewer.appearance, (appearance) => appearance?.ADyeSlotDisabled !== '0')
-    showDye = derived(viewer.appearance, (appearance) => !!appearance)
+    isOpen = true
+    setTimeout(() => updateViewer(modelUrl))
   }
 
   export function close() {
@@ -32,40 +15,77 @@
       viewer.dispose()
       viewer = null
     }
-    dialogEl.close()
-    containerEl.innerHTML = ''
+    if (viewerEl) {
+      viewerEl.innerHTML = ''
+    }
+    isOpen = false
+    appearance.set(null)
   }
 
-  let dialogEl: HTMLDialogElement
+  function updateViewer(modelUrl: string) {
+    if (viewer) {
+      viewer.showModel(modelUrl)
+    } else {
+      viewer = createViewer(viewerEl, modelUrl)
+    }
+  }
+
+  function createViewer(parent: HTMLElement, modelUrl: string) {
+    const el = document.createElement('div')
+    parent.appendChild(el)
+    return showBabylonViewer({
+      el,
+      modelUrl,
+      dyeR,
+      dyeG,
+      dyeB,
+      dyeA,
+      debugMask,
+      appearance,
+    })
+  }
+
+  function fullscreen() {
+    viewerEl.requestFullscreen()
+  }
+
+  let isOpen = false
   let containerEl: HTMLElement
+  let viewerEl: HTMLElement
   let viewer: BabylonViewer | null
-  let dyeR: Writable<DyeColor | null>
-  let dyeG: Writable<DyeColor | null>
-  let dyeB: Writable<DyeColor | null>
-  let dyeA: Writable<DyeColor | null>
-  let dyeRDisabled: Readable<boolean>
-  let dyeGDisabled: Readable<boolean>
-  let dyeBDisabled: Readable<boolean>
-  let dyeADisabled: Readable<boolean>
-  let showDye: Readable<boolean>
-  let debugMask: Writable<boolean | null>
+
+  const dyeR = writable<DyeColor | null>(null)
+  const dyeG = writable<DyeColor | null>(null)
+  const dyeB = writable<DyeColor | null>(null)
+  const dyeA = writable<DyeColor | null>(null)
+  const debugMask = writable<boolean | null>(null)
+  const appearance = writable<AppearanceDyeExtras | null>(null)
+
+  const dyeRDisabled = derived(appearance, (it) => it?.RDyeSlotDisabled !== '0')
+  const dyeGDisabled = derived(appearance, (it) => it?.GDyeSlotDisabled !== '0')
+  const dyeBDisabled = derived(appearance, (it) => it?.BDyeSlotDisabled !== '0')
+  const dyeADisabled = derived(appearance, (it) => it?.ADyeSlotDisabled !== '0')
+  const showDye = derived(appearance, (it) => !!it)
 </script>
 
-<dialog bind:this={dialogEl} class="w-full p-2 relative">
-  <div bind:this={containerEl} />
-  <div class="flex flex-col gap-2 w-[200px] absolute top-4 right-4" style="z-index: 100">
-    <button type="button" class="btn btn-primary btn-active" on:click={close}> CLOSE </button>
-    {#if $showDye}
-      <DyePicker bind:color={$dyeR} disabled={$dyeRDisabled} />
-      <DyePicker bind:color={$dyeG} disabled={$dyeGDisabled} />
-      <DyePicker bind:color={$dyeB} disabled={$dyeBDisabled} />
-      <DyePicker bind:color={$dyeA} disabled={$dyeADisabled} />
-      <div class="form-control">
-        <label class="label cursor-pointer">
-          <span class="label-text">DEBUG</span>
-          <input type="checkbox" class="toggle" bind:checked={$debugMask} />
-        </label>
-      </div>
-    {/if}
+{#if isOpen}
+  <div class="relative flex-1" bind:this={containerEl}>
+    <div bind:this={viewerEl} />
+    <div class="flex flex-col gap-2 w-[200px] absolute top-4 right-4" style="z-index: 100">
+      <button type="button" class="btn btn-primary btn-active" on:click={fullscreen}> Fullscreen </button>
+      <button type="button" class="btn btn-primary btn-active" on:click={close}> Close </button>
+      {#if $showDye}
+        <DyePicker bind:color={$dyeR} disabled={$dyeRDisabled} />
+        <DyePicker bind:color={$dyeG} disabled={$dyeGDisabled} />
+        <DyePicker bind:color={$dyeB} disabled={$dyeBDisabled} />
+        <DyePicker bind:color={$dyeA} disabled={$dyeADisabled} />
+        <div class="form-control">
+          <label class="label btn px-2">
+            <span class="label-text">Show Mask</span>
+            <input type="checkbox" class="toggle" bind:checked={$debugMask} />
+          </label>
+        </div>
+      {/if}
+    </div>
   </div>
-</dialog>
+{/if}

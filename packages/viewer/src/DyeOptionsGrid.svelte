@@ -14,11 +14,12 @@
   {#each options as option, index}
     <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div
-      class="aspect-square rounded-sm p-1 text-center cursor-pointer font-bold"
-      style="background-color: {option.Color}; border-color: {option.SpecColor}; border-width: 2px;"
+      class="aspect-video rounded-sm p-1 text-center cursor-pointer font-bold flex flex-col"
+      style="background-color: {option.Color};"
       on:click={() => colorClicked(option)}
     >
-      {option.Name}
+      <div class="flex-1">{option.Name}</div>
+      <div class="flex-1" style="background-color: {option.SpecColor};" />
     </div>
   {/each}
 </div>

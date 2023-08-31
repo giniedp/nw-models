@@ -1,4 +1,3 @@
-const webpack = require('webpack')
 const SveltePreprocess = require('svelte-preprocess')
 const path = require('path')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
@@ -13,7 +12,7 @@ module.exports = (arg) => {
   return {
     mode: mode,
     entry: {
-      index: ['./src/main.ts'],
+      index: ['./index.ts'],
     },
     devServer: {
       port: 9000,
@@ -77,7 +76,7 @@ module.exports = (arg) => {
         },
         {
           test: /\.css$/i,
-          use: ['style-loader', 'css-loader'],
+          use: ['style-loader', 'css-loader', 'postcss-loader'],
         },
       ],
     },

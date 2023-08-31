@@ -3,7 +3,7 @@ import 'babylonjs-loaders'
 import './dye-loader-extension'
 import './dye-material-plugin'
 import { DefaultViewer, ViewerModel } from 'babylonjs-viewer'
-import { writable, derived, type Unsubscriber } from 'svelte/store'
+import { writable, derived, type Unsubscriber, type Writable } from 'svelte/store'
 import { DyeMaterialPlugin } from './dye-material-plugin'
 import { DyeLoaderExtension } from './dye-loader-extension'
 import type { DyeColor } from '../dye-colors'
@@ -11,6 +11,13 @@ import type { DyeColor } from '../dye-colors'
 export interface BabylonViewerOptions {
   el: HTMLElement
   modelUrl: string
+
+  dyeR: Writable<DyeColor | null>
+  dyeG: Writable<DyeColor | null>
+  dyeB: Writable<DyeColor | null>
+  dyeA: Writable<DyeColor | null>
+  debugMask: Writable<boolean | null>
+  appearance: Writable<AppearanceDyeExtras | null>
 }
 
 export interface AppearanceDyeExtras {
@@ -33,18 +40,13 @@ export interface DyeChannel {
 }
 
 export type BabylonViewer = ReturnType<typeof showBabylonViewer>
-export function showBabylonViewer(options: BabylonViewerOptions) {
-  const appearance = writable<AppearanceDyeExtras | null>(null)
-  const dyeR = writable<DyeColor | null>(null)
-  const dyeG = writable<DyeColor | null>(null)
-  const dyeB = writable<DyeColor | null>(null)
-  const dyeA = writable<DyeColor | null>(null)
-  const debugMask = writable<boolean | null>(null)
+export function showBabylonViewer({ el, modelUrl, dyeR, dyeG, dyeB, dyeA, debugMask, appearance }: BabylonViewerOptions) {
 
-  const viewer = new DefaultViewer(options.el, {
+
+  const viewer = new DefaultViewer(el, {
     model: {
       rotationOffsetAngle: 0,
-      url: new URL(options.modelUrl, location.origin).toString(),
+      url: new URL(modelUrl, location.origin).toString(),
     },
     templates: {
       navBar: {
@@ -74,12 +76,9 @@ export function showBabylonViewer(options: BabylonViewerOptions) {
   })
 
   return {
-    appearance,
-    dyeR,
-    dyeG,
-    dyeB,
-    dyeA,
-    debugMask,
+    showModel: (modelUrl: string) => {
+      viewer.loadModel(modelUrl).catch(console.error)
+    },
     dispose: () => {
       viewer.dispose()
       unsub?.()

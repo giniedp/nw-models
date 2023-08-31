@@ -1,7 +1,5 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte'
-  import 'ag-grid-community/styles/ag-grid.css'
-  import 'ag-grid-community/styles/ag-theme-alpine.css'
   import type { ColDef, ColumnApi, GridApi, GridReadyEvent, ICellRendererParams } from 'ag-grid-community'
   import { Grid } from 'ag-grid-community'
   import Viewer from './Viewer.svelte'
@@ -101,16 +99,11 @@
   ]
 </script>
 
-<main class="relative">
-  <div bind:this={gridEl} class="grid ag-theme-alpine-dark" />
+<main class="flex flex-row absolute inset-0 ">
+  <div bind:this={gridEl} class="grid ag-theme-alpine-dark flex-1" />
+  <Viewer bind:this={viewer}></Viewer>
 </main>
 
-<Viewer bind:this={viewer}></Viewer>
-
 <style>
-  main,
-  .grid {
-    width: 100vw;
-    height: 100dvh;
-  }
+  
 </style>

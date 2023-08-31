@@ -26,14 +26,15 @@
     </svg>
   </button>
   <!-- svelte-ignore a11y-click-events-have-key-events -->
-  <div
+  <button
     on:click={showOptions}
-    class="input input-bordered join-item w-full px-1 cursor-pointer"
-    style="background-color: {color?.Color}"
+    disabled={disabled ? true : null}
+    class="btn join-item flex-1 px-0"
+    style="background-color: {disabled ? '' : color?.Color}"
   />
 </div>
 
-<dialog bind:this={dialogEl} class="w-[600px] h-[600px] p-3 flex flex-col gap-1" class:hidden={!isOpen} >
+<dialog bind:this={dialogEl} class="w-[600px] h-[600px] p-3 flex flex-col gap-1" class:hidden={!isOpen}>
   {#if isOpen}
     <div class="flex-1 overflow-auto">
       <DyeOptionsGrid on:select={(e) => closeModal(e)} />
