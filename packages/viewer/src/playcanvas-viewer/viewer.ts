@@ -2,18 +2,17 @@ import {
   Asset,
   Color,
   Entity,
-  FILLMODE_FILL_WINDOW,
   FILLMODE_KEEP_ASPECT,
   Keyboard,
   LAYERID_DEPTH,
   Mouse,
   RESOLUTION_AUTO,
-  TouchDevice,
-  Vec3
+  Texture,
+  TouchDevice
 } from 'playcanvas'
 
 import { App } from './app'
-import { OrbitCamera, OrbitCameraInputKeyboard, OrbitCameraInputMouse, OrbitCameraInputTouch } from './orbit-camera'
+import { createMaterial } from './create-material'
 
 export type File = {
   filename: string
@@ -42,8 +41,6 @@ export class PlayCanvasViewer {
       },
     }))
 
-    // Depth layer is where the framebuffer is copied to a texture to be used in the following layers.
-    // Move the depth layer to take place after World and Skydome layers, to capture both of them.
     const depthLayer = app.scene.layers.getLayerById(LAYERID_DEPTH)!
     app.scene.layers.remove(depthLayer)
     app.scene.layers.insertOpaque(depthLayer, 2)
@@ -51,7 +48,6 @@ export class PlayCanvasViewer {
     app.setCanvasFillMode(FILLMODE_KEEP_ASPECT);
     app.setCanvasResolution(RESOLUTION_AUTO);
 
-    // create the orbit camera
     const camera = new Entity('Camera')
     camera.addComponent('camera', {
       fov: 75,
@@ -60,17 +56,9 @@ export class PlayCanvasViewer {
     })
     camera.setPosition(0, 1, -2)
     camera.lookAt(0, 1, 0)
-    //camera.camera!.requestSceneColorMap(true)
 
-    const orbitCamera = new OrbitCamera(camera, 0.25)
-    const orbitCameraInputMouse = new OrbitCameraInputMouse(app, orbitCamera)
-    const orbitCameraInputTouch = new OrbitCameraInputTouch(app, orbitCamera)
-    const orbitCameraInputKeyboard = new OrbitCameraInputKeyboard(app, orbitCamera)
-
-    orbitCamera.focalPoint.snapto(new Vec3(0, 0, 0))
     app.root.addChild(camera)
 
-    // create the light
     const light = new Entity()
     light.addComponent('light', {
       type: 'directional',
@@ -106,7 +94,6 @@ export class PlayCanvasViewer {
 
     // this.meshInstances = []
     // this.resetWireframeMeshes()
-
   }
 
   public addToScene(asset: Asset) {
@@ -124,7 +111,6 @@ export class PlayCanvasViewer {
       this.entities.push(entity)
       this.entityAssets.push({ entity: entity, asset: asset })
       this.sceneRoot.addChild(entity)
-      //this.shadowCatcher.onEntityAdded(entity)
     }
 
     // store the loaded asset
@@ -133,7 +119,15 @@ export class PlayCanvasViewer {
 
   public loadGltf(gltfUrl: File, externalUrls: Array<File>) {
     return new Promise<Asset>((resolve, reject) => {
-      const containerAsset = new Asset(gltfUrl.filename, 'container', gltfUrl, null!)
+      const containerAsset = new Asset(gltfUrl.filename, 'container', gltfUrl, null!, {
+        material: {
+          process: (gltfMtl: any, textures: Texture[]) => {
+            const material = createMaterial(gltfMtl, textures, false)
+            console.log('process', material.chunks)
+            return material
+          },
+        }
+      } as any)
       containerAsset.on('load', () => resolve(containerAsset))
       containerAsset.on('error', (err: string) => reject(err))
       this.app.assets.add(containerAsset)
