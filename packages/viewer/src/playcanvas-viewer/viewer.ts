@@ -1,18 +1,18 @@
 import {
+  Application,
   Asset,
   Color,
   Entity,
   FILLMODE_KEEP_ASPECT,
   Keyboard,
-  LAYERID_DEPTH,
   Mouse,
   RESOLUTION_AUTO,
   Texture,
   TouchDevice
 } from 'playcanvas'
 
-import { App } from './app'
 import { createMaterial } from './create-material'
+import { NwExtension } from './nw-extension'
 
 export type File = {
   filename: string
@@ -20,7 +20,7 @@ export type File = {
 }
 
 export class PlayCanvasViewer {
-  public readonly app: App
+  public readonly app: Application
 
   private sceneRoot: Entity = null!
   private entities: Array<Entity> = []
@@ -28,7 +28,7 @@ export class PlayCanvasViewer {
   private assets: Array<Asset> = []
 
   public constructor(canvas: HTMLCanvasElement) {
-    const app = (this.app = new App(canvas, {
+    const app = (this.app = new Application(canvas, {
       mouse: new Mouse(canvas),
       touch: new TouchDevice(canvas),
       keyboard: new Keyboard(window),
@@ -41,14 +41,11 @@ export class PlayCanvasViewer {
       },
     }))
 
-    const depthLayer = app.scene.layers.getLayerById(LAYERID_DEPTH)!
-    app.scene.layers.remove(depthLayer)
-    app.scene.layers.insertOpaque(depthLayer, 2)
-
     app.setCanvasFillMode(FILLMODE_KEEP_ASPECT);
     app.setCanvasResolution(RESOLUTION_AUTO);
 
     const camera = new Entity('Camera')
+
     camera.addComponent('camera', {
       fov: 75,
       frustumCulling: true,
@@ -56,7 +53,6 @@ export class PlayCanvasViewer {
     })
     camera.setPosition(0, 1, -2)
     camera.lookAt(0, 1, 0)
-
     app.root.addChild(camera)
 
     const light = new Entity()
@@ -71,9 +67,6 @@ export class PlayCanvasViewer {
 
     this.sceneRoot = new Entity('sceneRoot', app)
     app.root.addChild(this.sceneRoot)
-
-    const debugRoot = new Entity('debugRoot', app)
-    app.root.addChild(debugRoot)
   }
 
   public resetScene() {
@@ -91,15 +84,12 @@ export class PlayCanvasViewer {
       asset.unload()
     })
     this.assets = []
-
-    // this.meshInstances = []
-    // this.resetWireframeMeshes()
   }
 
   public addToScene(asset: Asset) {
     const resource = asset.resource
     const meshesLoaded = resource.renders && resource.renders.length > 0
-    const prevEntity: Entity | null = this.entities.length === 0 ? null : this.entities[this.entities.length - 1]
+    const prevEntity: Entity | null = this.entities[this.entities.length - 1] || null
 
     let entity: Entity
 
@@ -115,6 +105,8 @@ export class PlayCanvasViewer {
 
     // store the loaded asset
     this.assets.push(asset)
+
+    return entity
   }
 
   public loadGltf(gltfUrl: File, externalUrls: Array<File>) {
@@ -123,7 +115,7 @@ export class PlayCanvasViewer {
         material: {
           process: (gltfMtl: any, textures: Texture[]) => {
             const material = createMaterial(gltfMtl, textures, false)
-            console.log('process', material.chunks)
+            NwExtension.attachToMaterial(gltfMtl, material, textures)
             return material
           },
         }

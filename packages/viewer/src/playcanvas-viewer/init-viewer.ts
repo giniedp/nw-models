@@ -1,7 +1,9 @@
-import { type Writable } from 'svelte/store'
+import { derived, type Unsubscriber, type Writable } from 'svelte/store'
 
 import type { DyeColor } from '../dye-colors'
 import { PlayCanvasViewer } from './viewer'
+import { StandardMaterial, type Asset, Entity } from 'playcanvas'
+import { NwExtension, type AppearanceMetadata } from './nw-extension'
 
 
 export interface PcViewerOptions {
@@ -13,47 +15,35 @@ export interface PcViewerOptions {
   dyeB: Writable<DyeColor | null>
   dyeA: Writable<DyeColor | null>
   debugMask: Writable<boolean | null>
-  appearance: Writable<AppearanceDyeExtras | null>
+  appearance: Writable<AppearanceMetadata | null>
 }
-
-export interface AppearanceDyeExtras {
-  MaskRDyeOverride: number
-  MaskRDye: number
-  MaskGDyeOverride: number
-  MaskGDye: number
-  MaskBDyeOverride: number
-  MaskBDye: number
-  MaskASpecDye: number
-  RDyeSlotDisabled: string
-  GDyeSlotDisabled: string
-  BDyeSlotDisabled: string
-  ADyeSlotDisabled: string
-}
-
 export interface DyeChannel {
   color: string
   enabled: boolean
 }
 
 export type Viewer = ReturnType<typeof initViewer>
-export function initViewer({ el, modelUrl }: PcViewerOptions) {
+export function initViewer({ el, modelUrl, dyeR, dyeG, dyeB, dyeA, debugMask, appearance }: PcViewerOptions) {
 
+  const toUnsub: Unsubscriber[] = []
   const canvas = document.createElement('canvas')
   canvas.style.maxWidth = "100%"
   el.appendChild(canvas)
 
   const viewer = new PlayCanvasViewer(canvas)
-
+  let entity: Entity | null = null
   viewer.app.start()
   viewer.app.on('update', function (dt) {
-    // if (entity) {
-    //   entity.rotate(0, 100 * dt, 0)
-    // }
+    if (entity) {
+      entity.rotate(0, dt * 10, 0)
+    }
   })
   showModel(modelUrl)
 
   function showModel(modelUrl: string) {
     viewer.resetScene()
+    toUnsub.forEach((it) => it())
+
     modelUrl = new URL(modelUrl, location.origin).toString()
     viewer
       .loadGltf(
@@ -64,80 +54,45 @@ export function initViewer({ el, modelUrl }: PcViewerOptions) {
         [],
       )
       .then((asset) => {
-        viewer.addToScene(asset)
-        console.log(asset)
+        entity = viewer.addToScene(asset)
+        toUnsub.push(bindMaterials(asset))
+      }).catch(console.error)
+  }
+
+  function bindMaterials(asset: Asset) {
+    console.log(asset.resource.materials)
+    const materials: StandardMaterial[] = asset.resource.materials.map((it: any) => {
+      return it.resource
+    }).filter((it: any) => {
+      return !!NwExtension.getMaskTexture(it)
+    })
+    console.log(materials)
+    if (!materials.length) {
+      return () => null
+    }
+
+    const foundAppearance = materials.map((it) => NwExtension.getAppearance(it)).find((it) => !!it)
+    appearance.set(foundAppearance!)
+
+    return derived([appearance, dyeR, dyeG, dyeB, dyeA, debugMask], (it) => it).subscribe(([data, r, g, b, a, debug]) => {
+      materials.forEach((mtl) => {
+        NwExtension.updateMaterial(mtl, {
+          appearance: data!,
+          dyeR: r?.Color,
+          dyeG: g?.Color,
+          dyeB: b?.Color,
+          dyeA: a?.Color,
+          debugMask: !!debug,
+        })
       })
+    })
   }
 
   return {
     dispose: () => {
       viewer.dispose()
-      //   unsub?.()
+      toUnsub.forEach((it) => it())
     },
     showModel
-  }
-}
-
-function updateDyeChannel(options: {
-  //model: ViewerModel
-  appearance: AppearanceDyeExtras
-  dyeR: string | null
-  dyeG: string | null
-  dyeB: string | null
-  dyeA: string | null
-  debugMask: boolean
-}) {
-  //   options.model.meshes.forEach((mesh) => {
-  //     const dye = DyeMaterialPlugin.getPlugin(mesh.material)
-  //     if (!dye) {
-  //       return
-  //     }
-  //     if (!options.appearance) {
-  //       dye.isEnabled = false
-  //       return
-  //     }
-  //     dye.isEnabled = true
-  //     dye.debugMask = options.debugMask
-  //     if (options.dyeR) {
-  //       const rgb = hexToRgb(options.dyeR)
-  //       dye.dyeColorR.set(rgb.r, rgb.g, rgb.b, options.appearance.MaskRDye)
-  //     } else {
-  //       dye.dyeColorR.set(0, 0, 0, 0)
-  //     }
-  //     if (options.dyeG) {
-  //       const rgb = hexToRgb(options.dyeG)
-  //       dye.dyeColorG.set(rgb.r, rgb.g, rgb.b, options.appearance.MaskGDye)
-  //     } else {
-  //       dye.dyeColorG.set(0, 0, 0, 0)
-  //     }
-  //     if (options.dyeB) {
-  //       const rgb = hexToRgb(options.dyeB)
-  //       dye.dyeColorB.set(rgb.r, rgb.g, rgb.b, options.appearance.MaskBDye)
-  //     } else {
-  //       dye.dyeColorB.set(0, 0, 0, 0)
-  //     }
-  //     if (options.dyeA) {
-  //       const rgb = hexToRgb(options.dyeA)
-  //       dye.dyeColorA.set(rgb.r, rgb.g, rgb.b, options.appearance.MaskASpecDye)
-  //     } else {
-  //       dye.dyeColorA.set(0, 0, 0, 0)
-  //     }
-  //     dye.updateReflectivity()
-  //   })
-}
-
-function hexToRgb(hex: string) {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-  if (result) {
-    return {
-      r: parseInt(result[1], 16) / 255,
-      g: parseInt(result[2], 16) / 255,
-      b: parseInt(result[3], 16) / 255,
-    }
-  }
-  return {
-    r: 0,
-    g: 0,
-    b: 0,
   }
 }

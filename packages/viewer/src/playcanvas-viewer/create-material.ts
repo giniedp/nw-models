@@ -1,4 +1,4 @@
-import { BLEND_NONE, BLEND_NORMAL, CULLFACE_BACK, CULLFACE_NONE, SPECOCC_AO, StandardMaterial, Vec2, math, type Texture } from "playcanvas";
+import { BLEND_NONE, BLEND_NORMAL, CULLFACE_BACK, CULLFACE_NONE, SPECOCC_AO, StandardMaterial, Vec2, math, type Texture, Material } from "playcanvas";
 
 export function createMaterial(gltfMaterial: any, textures: Texture[], flipV: boolean) {
   const material = new StandardMaterial();
@@ -140,7 +140,6 @@ export function createMaterial(gltfMaterial: any, textures: Texture[], flipV: bo
     //"KHR_materials_transmission": extensionTransmission,
     //"KHR_materials_unlit": extensionUnlit,
     //"KHR_materials_volume": extensionVolume
-    "EXT_new_world_appearance": extensionNewWorldAppearance
   };
 
   // Handle extensions
@@ -259,24 +258,5 @@ export function extractTextureTransform(source: any, material: any, maps: string
       material[`${maps[map]}MapOffset`] = offsetVec;
       material[`${maps[map]}MapRotation`] = rotation;
     }
-  }
-};
-
-const EXT_new_world_appearance = 'EXT_new_world_appearance'
-interface NewWorldAppearanceJson {
-  data: any
-  maskTexture: {
-    index: number
-  }
-}
-
-export function extensionNewWorldAppearance(data: NewWorldAppearanceJson, material: any, textures: Texture[]) {
-  if (data.data) {
-    material.nwAppearance = data.data
-  }
-  if (data.maskTexture) {
-    const texture = textures[data.maskTexture.index];
-    extractTextureTransform(texture, material, ['diffuse', 'opacity']);
-    material.nwMaskTexture = texture
   }
 };
