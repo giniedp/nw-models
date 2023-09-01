@@ -143,7 +143,7 @@ program
     const tables = await readTables({ tablesDir: tablesDir }).then((data) => {
 
       if (itemId) {
-        const itemIds = itemId.split(',')
+        const itemIds = itemId.toLowerCase().split(',')
         data.items = data.items.filter(matchesAnyInList('ItemID', itemIds))
         data.housingItems = data.housingItems.filter(matchesAnyInList('HouseItemID', itemIds))
 
@@ -163,7 +163,7 @@ program
       }
 
       if (id) {
-        const ids = id.split(',')
+        const ids = id.toLowerCase().split(',')
         data = {
           ...data,
           housingItems: data.housingItems.filter(matchesAnyInList('HouseItemID', ids)),
