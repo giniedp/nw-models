@@ -2,10 +2,11 @@ const SveltePreprocess = require('svelte-preprocess')
 const path = require('path')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const Autoprefixer = require('autoprefixer')
+const CopyPlugin = require('copy-webpack-plugin')
 
 const WORKSPACE = path.resolve(__dirname, '../../')
 const MODELS_DIR = path.resolve(WORKSPACE, process.env.NW_MODELS_DIR || path.join('out', 'models'))
-
+const OUT_DIR = path.resolve(WORKSPACE, 'dist/viewer')
 module.exports = (arg) => {
   const mode = arg.mode ?? 'development'
   const isProduction = mode === 'production'
@@ -25,6 +26,9 @@ module.exports = (arg) => {
       new HtmlWebpackPlugin({
         template: './index.html',
       }),
+      new CopyPlugin({
+        patterns: [{ from: path.resolve(__dirname, 'lib'), to: path.join(OUT_DIR, 'lib') }],
+      }),
     ],
     resolve: {
       alias: {
@@ -35,7 +39,7 @@ module.exports = (arg) => {
       mainFields: ['svelte', 'browser', 'module', 'main'],
     },
     output: {
-      path: path.resolve(WORKSPACE, 'dist/viewer'),
+      path: OUT_DIR,
       filename: '[name].js',
       publicPath: '/',
     },

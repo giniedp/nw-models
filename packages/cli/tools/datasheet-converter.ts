@@ -1,4 +1,5 @@
 import { logger, spawn } from "../utils"
+import { resolveTool } from "./resolve-tool"
 
 export interface DatasheetConverterArgs {
   exe?: string
@@ -20,7 +21,7 @@ export async function datasheetConverter({
   pretty,
 }: DatasheetConverterArgs) {
   // https://github.com/new-world-tools/new-world-tools
-  const tool = exe || './tools/datasheet-converter.exe'
+  const tool = exe || resolveTool('datasheet-converter.exe')
   const args = [`-input`, input, `-output`, output, `-format`, format || 'json']
   if (threads) {
     args.push(`-threads`, String(threads))

@@ -15,6 +15,7 @@ import { computeNormals } from './transform/compute-normals'
 import { mergeScenes } from './transform/merge-scenes'
 import { removeSkinning } from './transform/remove-skinning'
 import { removeVertexColor } from './transform/remove-vertex-color'
+//import { toktx } from './transform/toktx';
 
 export async function transformGltf({
   meshes,
@@ -73,8 +74,7 @@ export async function transformGltf({
       // resize: [1024, 2024],
     }))
   } else if (withKtx) {
-    // TODO: 
-    // const slotsUASTC = '{normalTexture,occlusionTexture,metallicRoughnessTexture}';
+    // const slotsUASTC = /.*/;
     // transforms.push(
     //   toktx({ mode: Mode.UASTC, slots: slotsUASTC, level: 4, rdo: 4, zstd: 18 }),
     //   toktx({ mode: Mode.ETC1S, quality: 255 }),
@@ -129,7 +129,12 @@ async function transformFile({
   document.setLogger(logger)
 
   await document.transform(removeSkinning(),
+    // vertex color channels are somtetimes white but sometimes black
+    // default shader implementation multiplies vertex color with base color
+    // which then sometimes results in black color, thus removing vertex channel here
     removeVertexColor(),
+    // normal channels are present though all zeros
+    // thus computing normals here
     computeNormals({
       overwrite: true,
     }),
@@ -138,7 +143,8 @@ async function transformFile({
       materials: material,
       bake: true,
     }),
-    prune({}),)
+    prune({}),
+  )
 
   return document
 }

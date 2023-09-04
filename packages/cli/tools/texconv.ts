@@ -1,4 +1,5 @@
 import { logger, spawn } from "../utils"
+import { resolveTool } from "./resolve-tool"
 
 export interface TexconvArgs {
   exe?: string
@@ -34,7 +35,7 @@ export async function texconv({
   sepalpha
 }: TexconvArgs) {
   // https://github.com/Microsoft/DirectXTex/wiki/Texconv
-  const tool = exe || './tools/texconv.exe'
+  const tool = exe || resolveTool('texconv.exe')
   const args = []
   if (fileType) {
     args.push(`-ft`, fileType)

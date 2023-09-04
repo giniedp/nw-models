@@ -1,4 +1,5 @@
 import { logger, spawn } from "../utils"
+import { resolveTool } from "./resolve-tool"
 
 export interface PakExtrakterArgs {
   exe?: string
@@ -23,7 +24,7 @@ export async function pakExtractor({
   threads,
 }: PakExtrakterArgs) {
   // https://github.com/new-world-tools/new-world-tools
-  const tool = exe || './tools/pak-extracter.exe'
+  const tool = exe || resolveTool('pak-extracter.exe')
   const args = [`-input`, input, `-output`, output]
   if (include) {
     args.push(`-include`, include)

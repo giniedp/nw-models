@@ -1,11 +1,11 @@
-import * as path from 'path'
 import * as fs from 'fs'
-import { appendToFilename, copyFile, logger, mkdir, replaceExtname, transformTextFile, wrapError } from '../utils'
-import type { ModelAsset, ModelMeshAsset, TransformContext } from '../types'
-import { cgfConverter } from '../tools/cgf-converter'
-import { colladaToGltf } from '../tools/collada-to-gltf'
+import * as path from 'path'
 import { transformGltf } from '../file-formats/gltf'
 import { MaterialObject, loadMtlFile } from '../file-formats/mtl'
+import { cgfConverter } from '../tools/cgf-converter'
+import { colladaToGltf } from '../tools/collada-to-gltf'
+import type { ModelAsset, ModelMeshAsset, TransformContext } from '../types'
+import { appendToFilename, copyFile, logger, mkdir, replaceExtname, spawn, transformTextFile, wrapError } from '../utils'
 
 export async function copyMaterial({
   material,
@@ -60,7 +60,7 @@ export async function preprocessModel({
 
   if (update) {
     for (const file of [modelTmp, files.dae, files.gltf]) {
-      if (fs.existsSync(file) && update) {
+      if (fs.existsSync(file)) {
         fs.rmSync(file)
       }
     }
@@ -123,6 +123,15 @@ export async function processModel({
   }
 
   const finalFile = path.join(targetRoot, outDir, outFile).toLowerCase()
+  if (fs.existsSync(finalFile) && update) {
+    fs.rmSync(finalFile)
+  }
+
+  if (fs.existsSync(finalFile) && !update) {
+    logger.info(`skipped`)
+    return
+  }
+
   await mkdir(path.dirname(finalFile), {
     recursive: true,
   })
@@ -146,6 +155,27 @@ export async function processModel({
     })
   })
     .catch(wrapError(`transformGltf failed\n\t${finalFile}`))
+
+  // if (fs.existsSync(finalFile) && ktx) {
+
+  //   await spawn('gltf-transform', [
+  //     'uastc',
+  //     finalFile,
+  //     finalFile,
+  //     '--slots', "{diffuseTexture,normalTexture,occlusionTexture,metallicRoughnessTexture,specularGlossinessTexture}",
+  //     "--level", "4",
+  //     "--rdo", "4",
+  //     "--zstd", "18",
+  //     "--verbose",
+  //   ], {
+  //     shell: true,
+  //     stdio: 'inherit'
+  //   })
+  //   await spawn('gltf-transform', ['etc1s', finalFile, finalFile, '--quality', "255", "--verbose"], {
+  //     shell: true,
+  //     stdio: 'inherit'
+  //   })
+  // }
 }
 
 // loads the material file and transforms the texture paths

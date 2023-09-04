@@ -8,11 +8,20 @@ import {
   Mouse,
   RESOLUTION_AUTO,
   Texture,
-  TouchDevice
+  TouchDevice,
+  basisInitialize
 } from 'playcanvas'
 
 import { createMaterial } from './create-material'
 import { NwExtension } from './nw-extension'
+
+// HINT: only needed for ktx2 textures
+basisInitialize({
+  glueUrl: 'lib/basis/basis.wasm.js',
+  wasmUrl: 'lib/basis/basis.wasm.wasm',
+  fallbackUrl: 'lib/basis/basis.js',
+  lazyInit: true
+});
 
 export type File = {
   filename: string

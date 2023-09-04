@@ -967,6 +967,11 @@
   dependencies:
     rimraf "*"
 
+"@types/semver@^7.5.1":
+  version "7.5.1"
+  resolved "https://registry.yarnpkg.com/@types/semver/-/semver-7.5.1.tgz#0480eeb7221eb9bc398ad7432c9d7e14b1a5a367"
+  integrity sha512-cJRQXpObxfNKkFAZbJl2yjWtJCqELQIdShsogr1d2MilP8dKD9TE/nEKHkJgUNHdGKCQaf9HbIynuV2csLGVLg==
+
 "@types/send@*":
   version "0.17.1"
   resolved "https://registry.yarnpkg.com/@types/send/-/send-0.17.1.tgz#ed4932b8a2a805f1fe362a70f4e62d0ac994e301"
@@ -6205,6 +6210,11 @@ tsconfig-paths@^4.1.2:
     json5 "^2.2.2"
     minimist "^1.2.6"
     strip-bom "^3.0.0"
+
+tsimportlib@^0.0.5:
+  version "0.0.5"
+  resolved "https://registry.yarnpkg.com/tsimportlib/-/tsimportlib-0.0.5.tgz#6ba8497a19b7dd5a9198209d9b167c9eb84d7fb1"
+  integrity sha512-qWQv/C3YB4Pwj77Z2HlORfy5EsWHcSYt66VQlMM0xZiKXwtoe1SxfpzmHX62sdJgzU6esrBGtyRIlx6O2OFPrQ==
 
 tslib@^1.9.0:
   version "1.14.1"

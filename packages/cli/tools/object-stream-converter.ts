@@ -1,4 +1,5 @@
 import { logger, spawn } from "../utils"
+import { resolveTool } from "./resolve-tool"
 
 export interface ObjectStreamConverterArgs {
   exe?: string
@@ -9,7 +10,7 @@ export interface ObjectStreamConverterArgs {
 }
 export async function objectStreamConverter({ exe, input, output, threads, pretty }: ObjectStreamConverterArgs) {
   // https://github.com/new-world-tools/new-world-tools
-  const tool = exe || './tools/object-stream-converter.exe'
+  const tool = exe || resolveTool('object-stream-converter.exe')
   const args = [`-input`, input, `-output`, output]
   if (threads) {
     args.push(`-threads`, String(threads))

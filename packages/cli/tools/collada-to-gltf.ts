@@ -1,4 +1,5 @@
 import { logger, spawn } from "../utils"
+import { resolveTool } from "./resolve-tool"
 
 export interface Collada2GltfArgs {
   exe?: string
@@ -20,7 +21,7 @@ export async function colladaToGltf({
   binary,
 }: Collada2GltfArgs) {
   // https://github.com/KhronosGroup/COLLADA2GLTF
-  const tool = exe || './tools/COLLADA2GLTF/COLLADA2GLTF-bin.exe'
+  const tool = exe || resolveTool('COLLADA2GLTF/COLLADA2GLTF-bin.exe')
   const args = [input]
 
   if (materialsCommon) {

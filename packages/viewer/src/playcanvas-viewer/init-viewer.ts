@@ -1,9 +1,9 @@
 import { derived, type Unsubscriber, type Writable } from 'svelte/store'
 
+import { Entity, StandardMaterial, type Asset } from 'playcanvas'
 import type { DyeColor } from '../dye-colors'
-import { PlayCanvasViewer } from './viewer'
-import { StandardMaterial, type Asset, Entity } from 'playcanvas'
 import { NwExtension, type AppearanceMetadata } from './nw-extension'
+import { PlayCanvasViewer } from './viewer'
 
 
 export interface PcViewerOptions {

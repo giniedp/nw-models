@@ -1,4 +1,5 @@
 import { logger, spawn } from "../utils"
+import { resolveTool } from "./resolve-tool"
 
 export interface CgfConverterArgs {
   exe?: string
@@ -12,7 +13,7 @@ export interface CgfConverterArgs {
 
 export async function cgfConverter({ exe, input, material, dataDir, outDir, logLevel, png }: CgfConverterArgs) {
   // https://github.com/Markemp/Cryengine-Converter
-  const tool = exe || './tools/cgf-converter.exe'
+  const tool = exe || resolveTool('cgf-converter.exe')
 
   const args = ['-infile', input]
   if (material) {

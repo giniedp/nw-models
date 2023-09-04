@@ -28,7 +28,7 @@ describe('.dds file format', () => {
       assert.equal(fs.existsSync(output[0]), true)
       assert.equal(fs.existsSync(output[1]), true)
     })
-    
+
     it(DIFF, async () => {
       const output = await copyDdsFile({
         input: path.join(sampleDir, DIFF),
@@ -73,8 +73,8 @@ describe('.dds file format', () => {
         outDir: path.join(tmpDir),
         isNormal: false
       })
-      assert.equal(fs.existsSync(replaceExtname(files[0], '.png') ), true)
-      assert.equal(fs.existsSync(replaceExtname(files[1], '.png') ), true)
+      assert.equal(fs.existsSync(replaceExtname(files[0], '.png')), true)
+      assert.equal(fs.existsSync(replaceExtname(files[1], '.png')), true)
     })
   })
 })

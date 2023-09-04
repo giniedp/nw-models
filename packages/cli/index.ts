@@ -25,6 +25,7 @@ import { logger, spawn, wrapError, writeFile } from './utils'
 import { runTasks } from './worker'
 import { objectStreamConverter } from './tools/object-stream-converter'
 import { sumBy, uniq } from 'lodash'
+import { ktxCreate } from './tools/ktx-create'
 
 program
   .command('unpack')
@@ -73,6 +74,19 @@ program
       keepStructure: true,
       pretty: true,
     }).catch(wrapError('datasheet-converter failed'))
+  })
+
+program.command('test-ktx')
+  .action(async () => {
+    logger.verbose(true)
+    const res = await ktxCreate({
+      format: 'R8G8B8_UNORM',
+      input: fs.readFileSync('E:\\Projects\\nw-models\\packages\\cli\\tools\\sample\\male_masterofceremonies_diff.png'),
+      // input: fs.createReadStream('E:\\Projects\\nw-models\\packages\\cli\\tools\\sample\\male_masterofceremonies_diff.png', {
+      //   encoding: 'binary'
+      // }),
+    }).catch(console.error)
+    logger.debug(res)
   })
 
 program
@@ -346,3 +360,5 @@ async function writeStats({ outDir, assets }: { assets: ModelAsset[]; outDir: st
     encoding: 'utf-8',
   })
 }
+
+
