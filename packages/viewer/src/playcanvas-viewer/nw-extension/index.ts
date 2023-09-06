@@ -1,5 +1,5 @@
-import type { StandardMaterial, Texture } from "playcanvas"
-import { diffusePS } from "./diffuse"
+import type { StandardMaterial, Texture } from 'playcanvas'
+import { diffusePS } from './diffuse'
 
 export const EXT_new_world_appearance = 'EXT_new_world_appearance'
 
@@ -33,7 +33,7 @@ function attachToMaterial(gltfMtl: any, mtl: StandardMaterial, textures: Texture
     setAppearance(mtl, meta.data)
   }
   if (meta.maskTexture) {
-    const texture = textures[meta.maskTexture.index];
+    const texture = textures[meta.maskTexture.index]
     setMaskTexture(mtl, texture)
     // extractTextureTransform(texture, material, ['diffuse', 'opacity']);
     mtl.chunks.diffusePS = diffusePS
@@ -41,21 +41,21 @@ function attachToMaterial(gltfMtl: any, mtl: StandardMaterial, textures: Texture
 }
 
 function getExtensionMetadata(it: any): ExtensionMetadata | null {
-  return it[EXT_new_world_appearance] || null
+  return it?.[EXT_new_world_appearance] || null
 }
 
 function getMaskTexture(it: StandardMaterial): Texture | null {
   return (it as any).nwMaskTexture || null
 }
 function setMaskTexture(it: StandardMaterial, tex: Texture) {
-  (it as any).nwMaskTexture = tex
+  ;(it as any).nwMaskTexture = tex
 }
 
 function getAppearance(it: StandardMaterial): AppearanceMetadata | null {
   return (it as any).nwAppearance || null
 }
 function setAppearance(it: StandardMaterial, tex: AppearanceMetadata) {
-  (it as any).nwAppearance = tex
+  ;(it as any).nwAppearance = tex
 }
 
 function setParam(mtl: StandardMaterial, name: string, value: number | number[] | Float32Array | Texture) {
@@ -77,11 +77,8 @@ function setParamDyeA(mtl: StandardMaterial, value: number[]) {
 function setParamTexture(mtl: StandardMaterial, value: Texture) {
   setParam(mtl, 'dyeMask', value)
 }
-function setParams(mtl: StandardMaterial, { enabled, debug }: { enabled: boolean, debug: boolean }) {
-  setParam(mtl, 'dyeParams', [
-    enabled ? 1 : 0,
-    debug ? 1 : 0,
-  ])
+function setParams(mtl: StandardMaterial, { enabled, debug }: { enabled: boolean; debug: boolean }) {
+  setParam(mtl, 'dyeParams', [enabled ? 1 : 0, debug ? 1 : 0])
 }
 
 function hexToRgb(hex: string) {
@@ -100,14 +97,17 @@ function hexToRgb(hex: string) {
   }
 }
 
-function updateMaterial(mtl: StandardMaterial, options: {
-  appearance?: AppearanceMetadata
-  dyeR?: string
-  dyeG?: string
-  dyeB?: string
-  dyeA?: string
-  debugMask?: boolean
-}) {
+function updateMaterial(
+  mtl: StandardMaterial,
+  options: {
+    appearance?: AppearanceMetadata
+    dyeR?: string
+    dyeG?: string
+    dyeB?: string
+    dyeA?: string
+    debugMask?: boolean
+  },
+) {
   const texture = getMaskTexture(mtl)
   if (!texture) {
     return
@@ -116,7 +116,7 @@ function updateMaterial(mtl: StandardMaterial, options: {
   setParamTexture(mtl, texture)
   setParams(mtl, {
     enabled: !!options.appearance,
-    debug: !!options.debugMask
+    debug: !!options.debugMask,
   })
 
   if (!options.appearance) {
@@ -148,7 +148,6 @@ function updateMaterial(mtl: StandardMaterial, options: {
     setParamDyeA(mtl, [0, 0, 0, 0])
   }
 
-
   // const pbr = this._material as BABYLON.PBRMaterial
   // if (pbr.reflectivityColor) {
   //   pbr.reflectivityColor.set(
@@ -165,5 +164,5 @@ export const NwExtension = {
   setMaskTexture,
   getAppearance,
   setAppearance,
-  updateMaterial
+  updateMaterial,
 }
