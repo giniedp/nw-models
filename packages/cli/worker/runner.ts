@@ -6,8 +6,8 @@ import { TaskArgs, TaskName, WORKER_TASKS } from './tasks'
 
 export interface RunTasksOptions<K extends TaskName> {
   threads?: number
-  taskName: K,
-  tasks: Array<TaskArgs<K>>,
+  taskName: K
+  tasks: Array<TaskArgs<K>>
 }
 
 export async function runTasks<K extends TaskName>(options: RunTasksOptions<K>) {
@@ -35,6 +35,11 @@ function runThreaded<K extends TaskName>({ threads, taskName, tasks }: RunTasksO
 
   bar.start(limit, 0)
   return new Promise<void>((resolve) => {
+    if (!tasks.length) {
+      bar.stop()
+      runner.terminate()
+      resolve()
+    }
     for (const args of tasks) {
       runner
         .exec(taskName, [args])
