@@ -23,7 +23,19 @@
   function bindGrid() {
     grid = new Grid(gridEl, {
       columnDefs: columnDefs,
+      enableCellTextSelection: true,
+      rowSelection: 'single',
       onGridReady: onGridReady,
+      onSelectionChanged: ({ api }) => {
+        const data = api.getSelectedRows()[0]
+        if (data) {
+          bjsViewer.show(modelPath(data))
+          pcViewer.show(modelPath(data))
+        } else {
+          bjsViewer.close()
+          pcViewer.close()
+        }
+      },
     })
   }
 
@@ -43,13 +55,22 @@
   }
   const columnDefs: ColDef[] = [
     {
-      headerName: 'File',
-      valueGetter: ({ data }) => modelPath(data),
+      headerName: 'Dir',
+      field: 'outDir',
       filter: true,
       resizable: true,
       sortable: true,
-      width: 600,
-      cellRenderer: ({ value }: ICellRendererParams) => `<a href="${value}" target="_blank">${value}</a>`,
+      width: 200,
+      floatingFilter: true,
+    },
+    {
+      headerName: 'File',
+      field: 'outFile',
+      filter: true,
+      resizable: true,
+      sortable: true,
+      width: 400,
+      floatingFilter: true,
     },
     {
       headerName: 'Has Model',
@@ -58,6 +79,7 @@
       resizable: true,
       sortable: true,
       width: 150,
+      cellRenderer: ({ value }: ICellRendererParams) => (value ? '✅' : '❌'),
     },
     {
       headerName: 'Size',
@@ -66,37 +88,6 @@
       sortable: true,
       width: 150,
       valueFormatter: ({ value }) => `${((value || 0) / 1024 / 1024).toFixed(2)}Mb`,
-    },
-    {
-      headerName: 'Actions',
-      width: 300,
-      resizable: true,
-      cellRenderer: ({ data }: ICellRendererParams) => {
-        const el = document.createElement('div')
-        el.classList.add('btn-group')
-
-        if (data.fileSize) {
-          const btn = document.createElement('button')
-          btn.classList.add('btn', 'btn-info', 'btn-sm')
-          btn.addEventListener('click', () => {
-            bjsViewer.show(modelPath(data))
-            pcViewer.show(modelPath(data))
-          })
-          btn.textContent = 'Viewer'
-          el.append(btn)
-        }
-
-        if (data.fileSize) {
-          const btn = document.createElement('button')
-          btn.classList.add('btn', 'btn-info', 'btn-sm')
-          btn.textContent = 'Copy Path'
-          btn.addEventListener('click', () => {
-            navigator.clipboard.writeText(data.filePath)
-          })
-          el.append(btn)
-        }
-        return el
-      },
     },
   ]
 </script>
