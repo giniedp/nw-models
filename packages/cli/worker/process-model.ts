@@ -1,11 +1,11 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { transformGltf } from '../file-formats/gltf'
-import { MaterialObject, loadMtlFile } from '../file-formats/mtl'
+import { MtlObject, getMaterialTextures, loadMtlFile } from '../file-formats/mtl'
 import { cgfConverter } from '../tools/cgf-converter'
 import { colladaToGltf } from '../tools/collada-to-gltf'
 import type { ModelAsset, ModelMeshAsset, TransformContext } from '../types'
-import { appendToFilename, copyFile, logger, mkdir, replaceExtname, spawn, transformTextFile, wrapError } from '../utils'
+import { appendToFilename, copyFile, logger, mkdir, replaceExtname, transformTextFile, wrapError } from '../utils'
 
 export async function copyMaterial({
   material,
@@ -23,17 +23,23 @@ export async function copyMaterial({
   }).catch(wrapError(`copy material failed ${input}`))
 }
 
-function buildModelOutPath({
+function transitFileNames({
+  rootDir,
+  material,
   model,
   hash,
-  targetRoot,
-}: Pick<ModelMeshAsset & TransformContext, 'model' | 'targetRoot' | 'hash'>) {
-  return path.join(targetRoot, appendToFilename(model, hash ? `_${hash}` : ''))
-}
-
-function getIntermediateFileNames({ targetRoot, material, model }: { targetRoot: string, material: string, model: string }) {
+}: {
+  rootDir: string
+  material: string
+  model: string
+  hash: string
+}) {
+  model = path.join(rootDir, appendToFilename(model, hash ? `_${hash}` : '')).replace(/\s+/gi, '_')
+  material = material ? path.join(rootDir, material) : null
   return {
-    mtl: material ? path.join(targetRoot, material) : null,
+    rootDir,
+    material: material,
+    model: model,
     dae: replaceExtname(model, '.dae'),
     gltf: replaceExtname(model, '.gltf'),
   }
@@ -46,27 +52,21 @@ export async function preprocessModel({
   sourceRoot,
   targetRoot,
   update,
-}: Pick<
-  ModelMeshAsset & TransformContext,
-  'model' | 'material' | 'hash' | 'sourceRoot' | 'targetRoot' | 'update'
->) {
+}: Pick<ModelMeshAsset & TransformContext, 'model' | 'material' | 'hash' | 'sourceRoot' | 'targetRoot' | 'update'>) {
   if (!model) {
     return
   }
 
   const modelSrc = path.join(sourceRoot, model)
-  const modelTmp = buildModelOutPath({ model, hash, targetRoot })
-  const files = getIntermediateFileNames({ material, model: modelTmp, targetRoot })
+  const files = transitFileNames({ rootDir: targetRoot, material, model, hash })
 
-  if (update) {
-    for (const file of [modelTmp, files.dae, files.gltf]) {
-      if (fs.existsSync(file)) {
-        fs.rmSync(file)
-      }
+  for (const file of [files.model, files.dae, files.gltf]) {
+    if (update && file && fs.existsSync(file)) {
+      fs.rmSync(file)
     }
   }
 
-  await copyFile(modelSrc, modelTmp, {
+  await copyFile(modelSrc, files.model, {
     createDir: true,
   }).catch(wrapError(`copy model failed\n\t${modelSrc}`))
 
@@ -77,13 +77,20 @@ export async function preprocessModel({
 
   if (!fs.existsSync(files.dae) || update) {
     await cgfConverter({
-      input: modelTmp,
-      material: files.mtl,
+      input: files.model,
+      material: files.material,
       dataDir: targetRoot, // speeds up texture lookup, but writes wrong relative path names for textures
-      outDir: path.dirname(modelTmp),
+      outDir: path.dirname(files.dae),
       logLevel: 0,
       png: true,
-    }).catch(wrapError(`cgf-converter failed\n\t${modelTmp}`))
+    })
+      .then(() => {
+        if (!fs.existsSync(files.dae)) {
+          throw new Error(`no dae file generated`)
+        }
+      })
+      .catch(wrapError(`cgf-converter failed\n\t${files.model}`))
+
     // TODO: review paths. fix and remove this workaround
     await transformTextFile(files.dae, async (text) => {
       return text.replace(/<init_from>([^<]*\.(png|dds))<\/init_from>/gm, (match, texturePath) => {
@@ -97,11 +104,18 @@ export async function preprocessModel({
     logger.info(`skipped ${files.dae}`)
   }
 
-  if (!fs.existsSync(files.gltf) || update) {
+  if (!fs.existsSync(files.gltf)) {
+    await new Promise((resolve) => process.nextTick(resolve))
     await colladaToGltf({
       input: files.dae,
       output: files.gltf,
-    }).catch(wrapError(`collada2gltf failed\n\t${files.dae}`))
+    })
+      .then(() => {
+        if (!fs.existsSync(files.dae)) {
+          throw new Error(`no gltf file generated`)
+        }
+      })
+      .catch(wrapError(`collada2gltf failed\n\t${files.dae}`))
   } else {
     logger.info(`skipped ${files.gltf}`)
   }
@@ -110,14 +124,15 @@ export async function preprocessModel({
 export async function processModel({
   meshes,
   appearance,
+  transitRoot,
   targetRoot,
   update,
   outDir,
   outFile,
   draco,
   webp,
-  ktx
-}: ModelAsset & TransformContext & { webp?: boolean, draco?: boolean, ktx?: boolean }) {
+  ktx,
+}: ModelAsset & TransformContext & { webp?: boolean; draco?: boolean; ktx?: boolean }) {
   if (!meshes?.length) {
     return
   }
@@ -136,65 +151,49 @@ export async function processModel({
     recursive: true,
   })
 
-  await Promise.all(meshes.map(async ({ model, material, hash }) => {
-    const modelPart = buildModelOutPath({ model, hash, targetRoot })
-    const files = getIntermediateFileNames({ targetRoot, material, model: modelPart })
-    return {
-      model: files.gltf,
-      material: await getMaterial(targetRoot, files.mtl)
-    }
-  })).then((meshes) => {
-    return transformGltf({
-      meshes: meshes,
-      output: finalFile,
-      appearance: appearance,
-      update: update,
-      withDraco: draco,
-      withWebp: webp,
-      withKtx: ktx
+  await Promise.all(
+    meshes.map(async ({ model, material, hash, transform }) => {
+      const files = transitFileNames({ rootDir: transitRoot, material, model, hash })
+      return {
+        model: files.gltf,
+        material: await getMaterial(files.rootDir, files.material),
+        transform,
+      }
+    }),
+  )
+    .then((meshes) => {
+      return transformGltf({
+        meshes: meshes,
+        output: finalFile,
+        appearance: appearance,
+        withDraco: draco,
+        withWebp: webp,
+        withKtx: ktx,
+      })
     })
-  })
     .catch(wrapError(`transformGltf failed\n\t${finalFile}`))
-
-  // if (fs.existsSync(finalFile) && ktx) {
-
-  //   await spawn('gltf-transform', [
-  //     'uastc',
-  //     finalFile,
-  //     finalFile,
-  //     '--slots', "{diffuseTexture,normalTexture,occlusionTexture,metallicRoughnessTexture,specularGlossinessTexture}",
-  //     "--level", "4",
-  //     "--rdo", "4",
-  //     "--zstd", "18",
-  //     "--verbose",
-  //   ], {
-  //     shell: true,
-  //     stdio: 'inherit'
-  //   })
-  //   await spawn('gltf-transform', ['etc1s', finalFile, finalFile, '--quality', "255", "--verbose"], {
-  //     shell: true,
-  //     stdio: 'inherit'
-  //   })
-  // }
 }
 
 // loads the material file and transforms the texture paths
 // - textures are already in the targetRoot
 // - textures are already in .png format
-async function getMaterial(targetRoot: string, filePath: string): Promise<Array<MaterialObject>> {
+async function getMaterial(targetRoot: string, filePath: string): Promise<MtlObject[]> {
   if (!filePath) {
     return null
   }
   const result = await loadMtlFile(filePath)
   return result.map((mtl) => {
+    mtl.Textures
     return {
       ...mtl,
-      textures: mtl.textures?.map((tex) => {
-        return {
-          ...tex,
-          File: path.join(targetRoot, replaceExtname(tex.File, '.png')),
-        }
-      }),
+      Textures: {
+        Texture: getMaterialTextures(mtl).map((tex) => {
+          return {
+            ...tex,
+            File: path.join(targetRoot, replaceExtname(tex.File, '.png')),
+          }
+        }),
+      },
     }
   })
 }

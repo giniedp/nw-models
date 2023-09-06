@@ -1,18 +1,8 @@
-import { Document, FileUtils, ImageUtils, Texture } from '@gltf-transform/core'
-import sharp from 'sharp'
-import { MaterialObject } from '../../../file-formats/mtl'
-import { Appearance, getAppearanceId } from '../../../types'
-import { appendToFilename, replaceExtname } from '../../../utils/file-utils'
-import { logger } from '../../../utils/logger'
-import { createHash } from 'crypto'
+import { Document, FileUtils, ImageUtils, Texture, vec3 } from '@gltf-transform/core'
 import * as fs from 'fs'
-
-export function getMaterial(list: MaterialObject[], name: string) {
-  if (list?.length === 1) {
-    return list[0]
-  }
-  return list.find((it) => it.attrs.Name.toLowerCase() === name.toLowerCase())
-}
+import sharp from 'sharp'
+import { Appearance } from '../../../types'
+import { logger } from '../../../utils/logger'
 
 export async function blendDiffuseMap({
   base,
@@ -213,6 +203,17 @@ export async function mergeSpecularGloss({
     .toBuffer()
 }
 
+export function rgbToHex(rgb: vec3) {
+  return (
+    '#' +
+    [rgb[0], rgb[1], rgb[2]]
+      .map((x) => {
+        const hex = Math.round(x * 255).toString(16)
+        return hex.length === 1 ? '0' + hex : hex
+      })
+      .join('')
+  )
+}
 export function hexToRgb(hex: string, scale = 1) {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
   return result

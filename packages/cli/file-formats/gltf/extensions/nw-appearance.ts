@@ -1,18 +1,22 @@
-import { Document, Texture } from '@gltf-transform/core'
-import {
-  KHRMaterialsPBRSpecularGlossiness,
-  PBRSpecularGlossiness
-} from '@gltf-transform/extensions'
+import { Document, Texture, vec3, vec4 } from '@gltf-transform/core'
+import { KHRMaterialsPBRSpecularGlossiness, PBRSpecularGlossiness } from '@gltf-transform/extensions'
 import { createTransform } from '@gltf-transform/functions'
-import { MaterialObject } from 'file-formats/mtl'
+import {
+  MtlObject,
+  getMaterial,
+  getMaterialParamNum,
+  getMaterialParamVec,
+  getMaterialTextures,
+} from '../../../file-formats/mtl'
 import * as fs from 'fs'
 import { Appearance, getAppearanceId } from '../../../types'
 import { replaceExtname } from '../../../utils/file-utils'
 import { NwAppearanceExtension } from './nw-appearance-extension'
-import { blendDiffuseMap, blendSpecularMap, getMaterial, hexToRgb, mergeSpecularGloss, textureCache } from './utils'
+import { blendDiffuseMap, blendSpecularMap, hexToRgb, mergeSpecularGloss, rgbToHex, textureCache } from './utils'
+import { isFinite, isNumber } from 'lodash'
 
 export interface NwAppearanceOptions {
-  materials: MaterialObject[]
+  materials: MtlObject[]
   appearance: Appearance
   bake: boolean
 }
@@ -32,47 +36,52 @@ async function transformMaterials(doc: Document, { appearance, materials, bake }
 
   const cache = textureCache(doc)
 
-  for (const mtl of root.listMaterials()) {
+  for (const material of root.listMaterials()) {
+    const materialIndex = root.listMaterials().indexOf(material)
+    logger.debug(`MATERIAL ${materialIndex}: ${material.getName()}`)
 
-    // mtl.setNormalTexture(null)
-    // mtl.setEmissiveTexture(null)
-    // mtl.setBaseColorTexture(null)
-    // mtl.setOcclusionTexture(null)
-    // mtl.setMetallicRoughnessTexture(null)
-
-    const mtlIndex = root.listMaterials().indexOf(mtl)
-    const origMtl = getMaterial(materials, mtl.getName())
-    const texFiles = origMtl?.textures || []
-    logger.debug(`MATERIAL ${mtlIndex}: ${mtl.getName()}`)
-
-    // <Texture Map="Smoothness" File="path_ddna.dds"/>
-    // <Texture Map="Bumpmap" File="path_ddna.dds"/>
-    // <Texture Map="Decal" File="path_noise_mask.dds"/>
-    // <Texture Map="Specular" File="path_spec.dds"/>
-    // <Texture Map="Diffuse" File="path_diff.dds"/>
-    // <Texture Map="Custom" File="path_mask.dds"/>
-    // <Texture Map="Emittance" File="path_emis.dds"/>
+    const mtl = getMaterial(materials, material.getName())
+    const mtlDiffuse = getMaterialParamVec(mtl, 'Diffuse')
+    const mtlSpecular = getMaterialParamVec(mtl, 'Specular')
+    const mtlEmissive = getMaterialParamVec(mtl, 'Emissive')
+    const mtlEmittance = getMaterialParamVec(mtl, 'Emittance')
+    const mtlOpacity = getMaterialParamNum(mtl, 'Opacity')
+    const mtlAlphaTest = getMaterialParamNum(mtl, 'AlphaTest')
+    const mtlShininess = getMaterialParamNum(mtl, 'Shininess')
+    const mtlTextures = getMaterialTextures(mtl) || []
 
     // The diffuse color texture. All models should have this
-    const mapDiffuse = texFiles.find((it) => it.Map === 'Diffuse')
+    const mapDiffuse = mtlTextures.find((it) => it.Map === 'Diffuse')
     // Bumpmap and Smoothness are the same texture
     // - rgb -> Bumpmap
     // - a -> Smoothness
-    const mapBumpmap = texFiles.find((it) => it.Map === 'Bumpmap')
-    let mapSmoothness = texFiles.find((it) => it.Map === 'Smoothness')
+    const mapBumpmap = mtlTextures.find((it) => it.Map === 'Bumpmap')
+    let mapSmoothness = mtlTextures.find((it) => it.Map === 'Smoothness')
     // Metal Materials have a specular map applied
-    const mapSpecular = texFiles.find((it) => it.Map === 'Specular')
+    const mapSpecular = mtlTextures.find((it) => it.Map === 'Specular')
     // Custom color mask (dye color?)
-    const mapCustom = texFiles.find((it) => it.Map === 'Custom')
+    const mapCustom = mtlTextures.find((it) => it.Map === 'Custom')
     // Items that glow have an emit color map
-    const mapEmit = texFiles.find((it) => it.Map === 'Emittance')
+    const mapEmittance = mtlTextures.find((it) => it.Map === 'Emittance')
+    const mapOpacity = mtlTextures.find((it) => it.Map === 'Opacity')
 
+    logger.debug(`mtlDiffuse`, mtlDiffuse)
+    logger.debug(`mtlSpecular`, mtlSpecular)
+    logger.debug(`mtlEmissive`, mtlEmissive)
+    logger.debug(`mtlEmittance`, mtlEmittance)
+    logger.debug(`mtlOpacity`, mtlOpacity)
+    logger.debug(`mtlAlphaTest`, mtlAlphaTest)
+    logger.debug(`mtlShininess`, mtlShininess)
     logger.debug(`mapDiffuse ${mapDiffuse?.File}`)
     logger.debug(`mapBumpmap ${mapBumpmap?.File}`)
     logger.debug(`mapSmoothness ${mapSmoothness?.File}`)
     logger.debug(`mapSpecular ${mapSpecular?.File}`)
     logger.debug(`mapCustom ${mapCustom?.File}`)
-    logger.debug(`mapEmit ${mapEmit?.File}`)
+    logger.debug(`mapEmit ${mapEmittance?.File}`)
+
+    if (mtlDiffuse && mtlDiffuse.length === 4) {
+      material.setBaseColorFactor(mtlDiffuse as vec4)
+    }
 
     if (!mapSmoothness && mapBumpmap) {
       logger.debug('use mapBumpmap as mapSmoothness')
@@ -107,15 +116,15 @@ async function transformMaterials(doc: Document, { appearance, materials, bake }
       })
     }
     if (texDiffuse) {
-      mtl.setMetallicFactor(0)
-      mtl.setBaseColorTexture(texDiffuse)
+      material.setMetallicFactor(0)
+      material.setBaseColorTexture(texDiffuse)
     }
 
     if (mapBumpmap?.File) {
       const key = `${mapBumpmap.File}`.toLowerCase()
       const tex = await cache.addTextureFromFile(key, mapBumpmap.Map)
-      mtl.setNormalTexture(tex)
-      mtl.setNormalScale(1)
+      material.setNormalTexture(tex)
+      material.setNormalScale(1)
     }
 
     let texSpecular: Texture = null
@@ -174,51 +183,73 @@ async function transformMaterials(doc: Document, { appearance, materials, bake }
       const specExt = doc.createExtension(KHRMaterialsPBRSpecularGlossiness)
       specExt.setRequired(true)
       const specProps =
-        mtl.getExtension<PBRSpecularGlossiness>(specExt.extensionName) || specExt.createPBRSpecularGlossiness()
-      specProps.setDiffuseTexture(mtl.getBaseColorTexture())
+        material.getExtension<PBRSpecularGlossiness>(specExt.extensionName) || specExt.createPBRSpecularGlossiness()
+      specProps.setDiffuseTexture(material.getBaseColorTexture())
       specProps.setSpecularGlossinessTexture(texSpecular)
-      mtl.setExtension(specExt.extensionName, specProps)
+      if (mtlSpecular && mtlSpecular.length >= 3) {
+        specProps.setSpecularFactor(mtlSpecular.slice(0, 3) as vec3)
+      }
+      if (mtlDiffuse && mtlDiffuse.length === 4) {
+        specProps.setDiffuseFactor(mtlDiffuse as vec4)
+      }
+      material.setExtension(specExt.extensionName, specProps)
 
       // need to remove the pbrMetallicRoughness, otherwise playcanvas would pick that up instead
-      mtl.setMetallicRoughnessTexture(null)
-      mtl.setBaseColorTexture(null)
-      mtl.setMetallicFactor(1) // makes it not being added to pbrMetallicRoughness
-    }
-
-    if (mapEmit) {
-      const key = mapEmit.File.toLowerCase()
-      const texEmit = await cache.addTextureFromFile(key, mapEmit.Map)
-      mtl.setEmissiveTexture(texEmit)
-
-      if (appearance?.EmissiveColor) {
-        // max value of EmissiveIntensity is 10
-        logger.debug('EMISSIVE', appearance.EmissiveIntensity, appearance.EmissiveColor)
-        const factor = (appearance.EmissiveIntensity || 0) / 10
-        const color = hexToRgb(appearance.EmissiveColor, 1 / 255)
-        mtl.setEmissiveFactor([color.r * factor, color.g * factor, color.b * factor])
-      } else {
-        mtl.setEmissiveFactor([1, 1, 1])
-        logger.debug('EMISSIVE', 'fallback', mtl.getEmissiveFactor())
+      material.setMetallicRoughnessTexture(null)
+      material.setBaseColorTexture(null)
+      material.setMetallicFactor(1) // makes it not being added to pbrMetallicRoughness
+      if (mtlShininess >= 0) {
+        material.setRoughnessFactor(1 - mtlShininess / 255)
       }
     }
 
-    if (origMtl?.attrs?.AlphaTest) {
-      mtl.setAlphaCutoff(Number(origMtl.attrs.AlphaTest))
-      mtl.setAlphaMode('MASK')
-      mtl.setDoubleSided(true)
+    if (mapEmittance) {
+      const key = mapEmittance.File.toLowerCase()
+      const texEmit = await cache.addTextureFromFile(key, mapEmittance.Map)
+      material.setEmissiveTexture(texEmit)
+      material.setEmissiveFactor([1, 1, 1])
     }
 
-    const extension = doc.createExtension(NwAppearanceExtension)
-    extension.setRequired(false)
-    const props = extension.createProps()
-    props.setData({
-      ...appearance,
-    })
-    if (mapCustom?.File) {
-      const key = mapCustom.File.toLowerCase()
-      const tex = await cache.addTextureFromFile(key, mapCustom.Map)
-      props.setMaskTexture(tex)
+    if (appearance?.EmissiveColor) {
+      // max value of EmissiveIntensity is 10
+      logger.debug('EMISSIVE', appearance.EmissiveIntensity, appearance.EmissiveColor)
+      const factor = (appearance.EmissiveIntensity || 0) / 10
+      const color = hexToRgb(appearance.EmissiveColor, 1 / 255)
+      material.setEmissiveFactor([color.r * factor, color.g * factor, color.b * factor])
+    } else if (mtlEmittance && mtlEmittance.length >= 3) {
+      mtlEmittance.length = 3
+      material.setEmissiveFactor(mtlEmittance as vec3)
+    } else if (mtlEmissive && mtlEmissive.length >= 3) {
+      mtlEmissive.length = 3
+      material.setEmissiveFactor(mtlEmissive as vec3)
     }
-    mtl.setExtension(NwAppearanceExtension.EXTENSION_NAME, props)
+
+    material.setAlphaMode('OPAQUE')
+    logger.debug('Alpha mode OPAQUE')
+    if (isFinite(mtlAlphaTest) && mtlAlphaTest >= 0) {
+      material.setAlphaCutoff(mtlAlphaTest)
+      material.setAlphaMode('MASK')
+      material.setDoubleSided(true)
+    }
+    if (isFinite(mtlOpacity) && mtlOpacity >= 0 && mtlOpacity < 1) {
+      material.setAlpha(mtlOpacity)
+      material.setAlphaMode('BLEND')
+      material.setDoubleSided(true)
+    }
+
+    if (appearance && mapCustom?.File) {
+      const extension = doc.createExtension(NwAppearanceExtension)
+      extension.setRequired(false)
+      const props = extension.createProps()
+      props.setData({
+        ...appearance,
+      })
+      if (mapCustom?.File) {
+        const key = mapCustom.File.toLowerCase()
+        const tex = await cache.addTextureFromFile(key, mapCustom.Map)
+        props.setMaskTexture(tex)
+      }
+      material.setExtension(NwAppearanceExtension.EXTENSION_NAME, props)
+    }
   }
 }

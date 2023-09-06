@@ -1,5 +1,6 @@
 export interface TransformContext {
   sourceRoot: string
+  transitRoot: string
   targetRoot: string
   update: boolean
 }
@@ -7,7 +8,8 @@ export interface TransformContext {
 export interface ModelMeshAsset {
   model: string
   material: string
-  hash: string
+  hash?: string
+  transform?: number[]
 }
 
 export interface ModelAsset {
@@ -17,63 +19,63 @@ export interface ModelAsset {
   outFile: string
 }
 export interface Housingitems {
-  AttributionId?: string;
-  AudioCreated: string;
-  AudioPickup: string;
-  AudioPlace: string;
-  AudioUse: string;
-  BindOnPickup: boolean;
-  ColorFamilies?: string;
-  ConfirmBeforeUse: boolean;
-  ConsumeOnUse: boolean;
-  CraftingRecipe?: string;
-  "DEV-FurnitureSet"?: string;
-  DeathDropPercentage: number;
-  Description: string;
-  ExcludeFromGame: number;
-  ForceRarity: number;
-  HiResIconPath?: string;
-  HouseItemID: string;
-  HousingStatusEffect?: string;
-  "HousingTag1 Placed"?: string;
-  "HousingTag2 Points"?: string;
-  "HousingTag3 Limiter"?: string;
-  "HousingTag5 Buffs"?: string;
-  HousingTags?: string;
-  "HowToOptain (Primarily)"?: string;
-  IconPath?: string;
-  InteractionAnimationID?: string;
-  IsEntitlement?: string;
-  IsRepairable: boolean;
-  IsSalvageable: boolean;
-  ItemRarity?: string;
-  ItemType: string;
-  ItemTypeDisplayName?: string;
-  MaxPotentialPoints: number;
-  MaxStackSize: number;
-  Name: string;
-  Nonremovable: boolean;
-  Notes?: string;
-  PlacementGridDisplaySize?: string;
-  PointModifier: number;
-  PrefabPath: string;
-  "Primary Color"?: string;
-  RankingPoints: number;
-  RankingPointsDuplicateLimit: number;
-  RankingPointsNegativeLimit: number;
-  RepairDustModifier: number;
-  RepairRecipe?: string;
-  SalvageGameEventID?: string;
-  SalvageRecipe?: string;
-  SalvageResources: boolean;
-  StorageBonus: number;
-  Tier: number;
-  TradingCategory?: string;
-  TradingFamily?: string;
-  TradingGroup?: string;
-  UIHousingCategory?: string;
-  UiItemClass: string;
-  Weight: number;
+  AttributionId?: string
+  AudioCreated: string
+  AudioPickup: string
+  AudioPlace: string
+  AudioUse: string
+  BindOnPickup: boolean
+  ColorFamilies?: string
+  ConfirmBeforeUse: boolean
+  ConsumeOnUse: boolean
+  CraftingRecipe?: string
+  'DEV-FurnitureSet'?: string
+  DeathDropPercentage: number
+  Description: string
+  ExcludeFromGame: number
+  ForceRarity: number
+  HiResIconPath?: string
+  HouseItemID: string
+  HousingStatusEffect?: string
+  'HousingTag1 Placed'?: string
+  'HousingTag2 Points'?: string
+  'HousingTag3 Limiter'?: string
+  'HousingTag5 Buffs'?: string
+  HousingTags?: string
+  'HowToOptain (Primarily)'?: string
+  IconPath?: string
+  InteractionAnimationID?: string
+  IsEntitlement?: string
+  IsRepairable: boolean
+  IsSalvageable: boolean
+  ItemRarity?: string
+  ItemType: string
+  ItemTypeDisplayName?: string
+  MaxPotentialPoints: number
+  MaxStackSize: number
+  Name: string
+  Nonremovable: boolean
+  Notes?: string
+  PlacementGridDisplaySize?: string
+  PointModifier: number
+  PrefabPath: string
+  'Primary Color'?: string
+  RankingPoints: number
+  RankingPointsDuplicateLimit: number
+  RankingPointsNegativeLimit: number
+  RepairDustModifier: number
+  RepairRecipe?: string
+  SalvageGameEventID?: string
+  SalvageRecipe?: string
+  SalvageResources: boolean
+  StorageBonus: number
+  Tier: number
+  TradingCategory?: string
+  TradingFamily?: string
+  TradingGroup?: string
+  UIHousingCategory?: string
+  UiItemClass: string
+  Weight: number
 }
 export interface ItemDefinitionMaster {
   AcquisitionNotificationId?: number

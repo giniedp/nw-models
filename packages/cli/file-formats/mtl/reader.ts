@@ -1,56 +1,50 @@
-import * as fs from 'fs'
 import { XMLParser } from 'fast-xml-parser'
-import { logger, toArray } from '../../utils'
+import * as fs from 'fs'
+import { logger } from '../../utils'
+import { MtlDocument, MtlObject } from './types'
 
-export interface MaterialObject {
-  attrs: Record<string, string>
-  params: Record<string, string>
-  textures: MaterialTexture[]
-}
-
-export interface MaterialTexture {
-  Map: string
-  File: string
-}
-
-export async function loadMtlFile(mtlFile: string): Promise<MaterialObject[]> {
+export async function loadMtlFile(mtlFile: string): Promise<MtlObject[]> {
   if (!fs.existsSync(mtlFile)) {
     logger.warn(`Material does not exist: ${mtlFile}`)
-    return []
+    return null
   }
-  return readMtlFile(mtlFile)
+  const doc = await readMtlFile(mtlFile)
+  return flattenMaterials(doc?.Material)
 }
 
-export async function readMtlFile(file: string): Promise<MaterialObject[]> {
+export async function readMtlFile(file: string): Promise<MtlDocument> {
   const data = await fs.promises.readFile(file, { encoding: 'utf-8' })
-  return parseMtl(data)
+  return parseMtlFile(data)
 }
 
-export function parseMtl(data: string) {
+export function parseMtlFile(data: string): any {
   const parser = new XMLParser({
+    preserveOrder: false,
+    allowBooleanAttributes: true,
+    parseTagValue: true,
+    parseAttributeValue: true,
+    trimValues: true,
     ignoreAttributes: false,
-    attributesGroupName: 'attrs',
     attributeNamePrefix: '',
   })
-  const doc = parser.parse(data)
-  const material = doc.Material
-  if (!material) {
+  return parser.parse(data)
+}
+
+export function flattenMaterials(mtl: MtlObject): MtlObject[] {
+  if (!mtl) {
     return []
   }
-  if (!material.SubMaterials) {
-    return [
-      {
-        attrs: material.attrs,
-        textures: toArray(material.Textures?.Texture).map((it) => it.attrs),
-        params: material.PublicParams?.attrs,
-      },
-    ]
+  if (!mtl.SubMaterials) {
+    return [mtl]
   }
-  return toArray(material.SubMaterials.Material).map((mtl): MaterialObject => {
-    return {
-      attrs: mtl.attrs,
-      textures: toArray(mtl.Textures?.Texture).map((it) => it.attrs),
-      params: mtl.PublicParams?.attrs,
+  if (mtl.SubMaterials && typeof mtl.SubMaterials === 'object' && mtl.SubMaterials.Material) {
+    const subMaterials = mtl.SubMaterials.Material
+    if (Array.isArray(subMaterials)) {
+      return [...subMaterials]
     }
-  })
+    if (subMaterials) {
+      return [subMaterials]
+    }
+  }
+  return []
 }

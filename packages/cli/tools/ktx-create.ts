@@ -1,29 +1,29 @@
 import cp from 'child_process'
-import { logger, spawn } from "../utils"
+import { logger, spawn } from '../utils'
 import fs from 'fs'
 import { Readable } from 'stream'
 
 export interface KtxEncodeOptions {
   codec: string
   /**
-   * Only valid for linear textures with two or more components. If the input texture has three or four linear components 
-   * it is assumed to be a three component linear normal map storing unit length normals as (R=X, G=Y, B=Z). 
-   * A fourth component will be ignored. The map will be converted to a two component X+Y normal map stored as (RGB=X, A=Y) prior to encoding. 
+   * Only valid for linear textures with two or more components. If the input texture has three or four linear components
+   * it is assumed to be a three component linear normal map storing unit length normals as (R=X, G=Y, B=Z).
+   * A fourth component will be ignored. The map will be converted to a two component X+Y normal map stored as (RGB=X, A=Y) prior to encoding.
    * If unsure that your normals are unit length, use --normalize. If the input has 2 linear components it is assumed to be an X+Y map of unit normals.
-   * 
+   *
    * The Z component can be recovered programmatically in shader code by using the equations:
-   * 
+   *
    * ```
    * nml.xy = texture(...).ga;              // Load in [0,1]
-   * nml.xy = nml.xy * 2.0 - 1.0;           // Unpack to [-1,1] 
-   * nml.z = sqrt(1 - dot(nml.xy, nml.xy)); // Compute Z  
+   * nml.xy = nml.xy * 2.0 - 1.0;           // Unpack to [-1,1]
+   * nml.z = sqrt(1 - dot(nml.xy, nml.xy)); // Compute Z
    * ```
-   * 
+   *
    * For ETC1S / BasisLZ encoding, '--encode basis-lz', RDO is disabled (no selector RDO, no endpoint RDO) to provide better quality.
    */
   normalMode?: boolean
   /**
-   * Explicitly set the number of threads to use during compression. 
+   * Explicitly set the number of threads to use during compression.
    * By default, ETC1S / BasisLZ will use the number of threads reported by thread::hardware_concurrency or 1 if value returned is 0.
    */
   threads?: number
@@ -35,10 +35,10 @@ export interface KtxEncodeOptions {
 
 export interface KtxEncodeBasisOptions extends KtxEncodeOptions {
   /**
-   * Supercompress the image data with ETC1S / BasisLZ. 
-   * - RED images will become RGB with RED in each component (RRR). 
-   * - RG images will have R in the RGB part and G in the alpha part of the compressed texture (RRRG). 
-   * 
+   * Supercompress the image data with ETC1S / BasisLZ.
+   * - RED images will become RGB with RED in each component (RRR).
+   * - RG images will have R in the RGB part and G in the alpha part of the compressed texture (RRRG).
+   *
    * When set, the following BasisLZ-related options become valid, otherwise they are ignored.
    */
   codec: 'basis-lz'
@@ -47,20 +47,20 @@ export interface KtxEncodeBasisOptions extends KtxEncodeOptions {
    */
   clevel?: number
   /**
-   * ETC1S / BasisLZ quality level. Range is [1,255]. Lower gives better compression/lower quality/faster. 
-   * Higher gives less compression/higher quality/slower. 
-   * 
-   * --qlevel automatically determines values for 
-   *  - --max-endpoints, 
-   *  - --max-selectors, 
+   * ETC1S / BasisLZ quality level. Range is [1,255]. Lower gives better compression/lower quality/faster.
+   * Higher gives less compression/higher quality/slower.
+   *
+   * --qlevel automatically determines values for
+   *  - --max-endpoints,
+   *  - --max-selectors,
    *  - --endpoint-rdo-threshold
-   *  - --selector-rdo-threshold 
-   * 
-   * for the target quality level. 
+   *  - --selector-rdo-threshold
+   *
+   * for the target quality level.
    * Setting these options overrides the values determined by -qlevel which defaults to 128 if neither it nor --max-endpoints and --max-selectors have been set.
-   * 
+   *
    * Note that both of --max-endpoints and --max-selectors must be set for them to have any effect. If all three options are set, a warning will be issued that --qlevel will be ignored.
-   * 
+   *
    * Note also that --qlevel will only determine values for --endpoint-rdo-threshold and --selector-rdo-threshold when its value exceeds 128, otherwise their defaults will be used.
    */
   qlevel?: number
@@ -97,7 +97,7 @@ export interface KtxEncodeUastcOptions extends KtxEncodeOptions {
   codec: 'uastc'
   /**
    * This optional parameter selects a speed vs quality tradeoff as shown in the following table:
-   * 
+   *
    * ```
    * Level  Speed      Quality
    *   0    Fastest    43.45dB
@@ -106,9 +106,9 @@ export interface KtxEncodeUastcOptions extends KtxEncodeOptions {
    *   3    Slower     48.01dB
    *   4    Very slow  48.24dB
    * ```
-   * You are strongly encouraged to also specify --zcmp to losslessly compress the UASTC data. 
-   * This and any LZ-style compression can be made more effective by conditioning the UASTC texture data using 
-   * the Rate Distortion Optimization (RDO) post-process stage. 
+   * You are strongly encouraged to also specify --zcmp to losslessly compress the UASTC data.
+   * This and any LZ-style compression can be made more effective by conditioning the UASTC texture data using
+   * the Rate Distortion Optimization (RDO) post-process stage.
    * When uastc encoding is set the following options become available for controlling
    */
   quality: 0 | 1 | 2 | 3 | 4
@@ -117,21 +117,21 @@ export interface KtxEncodeUastcOptions extends KtxEncodeOptions {
    */
   rdo?: boolean
   /**
-   * Set UASTC RDO quality scalar (lambda) to lambda. 
-   * Lower values yield higher quality/larger LZ compressed files, higher values yield lower quality/smaller LZ compressed files. 
+   * Set UASTC RDO quality scalar (lambda) to lambda.
+   * Lower values yield higher quality/larger LZ compressed files, higher values yield lower quality/smaller LZ compressed files.
    * A good range to try is [.25,10]. For normal maps a good range is [.25,.75]. The full range is [.001,10.0]. Default is 1.0.
    */
   rdoL?: number
   /**
-   * Set UASTC RDO dictionary size in bytes. 
-   * Default is 4096. 
-   * Lower values=faster, but give less compression. 
+   * Set UASTC RDO dictionary size in bytes.
+   * Default is 4096.
+   * Lower values=faster, but give less compression.
    * Range is [64,65536].
    */
   rdoD?: number
   /**
-   * Set UASTC RDO max smooth block error scale. Range is [1.0,300.0]. 
-   * Default is 10.0, 1.0 is disabled. 
+   * Set UASTC RDO max smooth block error scale. Range is [1.0,300.0].
+   * Default is 10.0, 1.0 is disabled.
    * Larger values suppress more artifacts (and allocate more bits) on smooth blocks.
    */
   rdoB?: number
@@ -153,8 +153,8 @@ export interface KtxEncodeUastcOptions extends KtxEncodeOptions {
 
 export interface KtxCreateOptions {
   /**
-   * KTX format enum. The enum names are matching the VkFormats without the VK_FORMAT_ prefix. 
-   * If the format is an ASTC format the ASTC encoder specific options become valid, otherwise they are ignored. 
+   * KTX format enum. The enum names are matching the VkFormats without the VK_FORMAT_ prefix.
+   * If the format is an ASTC format the ASTC encoder specific options become valid, otherwise they are ignored.
    * Required. The VK_FORMAT_ prefix is ignored if present. Case insensitive.
    */
   format: string
@@ -163,10 +163,10 @@ export interface KtxCreateOptions {
    */
   astcMode?: 'ldr' | 'hdr'
   /**
-   * The quality level configures the quality-performance tradeoff for the compressor; 
-   * more complete searches of the search space improve image quality at the expense of compression time. 
+   * The quality level configures the quality-performance tradeoff for the compressor;
+   * more complete searches of the search space improve image quality at the expense of compression time.
    * Default is 'medium'. The quality level can be set between fastest (0) and exhaustive (100) via the following fixed quality presets:
-   * 
+   *
    * ```
    *   Level      Quality
    *   fastest    (equivalent to quality = 0)
@@ -178,8 +178,8 @@ export interface KtxCreateOptions {
    */
   astcQuality?: 'fastest' | 'fast' | 'medium' | 'thorough' | 'exhaustive' | number
   /**
-   * The codec should optimize for perceptual error, instead of direct RMS error. 
-   * This aims to improve perceived image quality, but typically lowers the measured PSNR score. 
+   * The codec should optimize for perceptual error, instead of direct RMS error.
+   * This aims to improve perceived image quality, but typically lowers the measured PSNR score.
    * Perceptual methods are currently only available for normal maps and RGB color data.
    */
   astcPerceptual?: number
@@ -216,23 +216,41 @@ export interface KtxCreateOptions {
    */
   runtimeMipmap?: boolean
   /**
-   * Causes mipmaps to be generated during texture creation. If the –levels is not specified the maximum possible mip level will be generated. 
+   * Causes mipmaps to be generated during texture creation. If the –levels is not specified the maximum possible mip level will be generated.
    * This option is mutually exclusive with –runtime-mipmap and cannot be used with SINT, UINT or 3D textures.
    */
-  generateMipmap?: boolean | {
-    /**
-     * Specifies the filter to use when generating the mipmaps. Case insensitive. Defaults to lanczos4.
-     */
-    filter?: 'box' | 'tent' | 'bell' | 'b-spline' | 'mitchell' | 'blackman' | 'lanczos3' | 'lanczos4' | 'lanczos6' | 'lanczos12' | 'kaiser' | 'gaussian' | 'catmullrom' | 'quadratic_interp' | 'quadratic_approx' | 'quadratic_mix',
-    /**
-     * The filter scale to use. Defaults to 1.0.
-     */
-    filterScale?: number
-    /**
-     * Specify how to sample pixels near the image boundaries. Case insensitive. Defaults to clamp.
-     */
-    wrap?: 'wrap' | 'reflect' | 'clamp'
-  }
+  generateMipmap?:
+    | boolean
+    | {
+        /**
+         * Specifies the filter to use when generating the mipmaps. Case insensitive. Defaults to lanczos4.
+         */
+        filter?:
+          | 'box'
+          | 'tent'
+          | 'bell'
+          | 'b-spline'
+          | 'mitchell'
+          | 'blackman'
+          | 'lanczos3'
+          | 'lanczos4'
+          | 'lanczos6'
+          | 'lanczos12'
+          | 'kaiser'
+          | 'gaussian'
+          | 'catmullrom'
+          | 'quadratic_interp'
+          | 'quadratic_approx'
+          | 'quadratic_mix'
+        /**
+         * The filter scale to use. Defaults to 1.0.
+         */
+        filterScale?: number
+        /**
+         * Specify how to sample pixels near the image boundaries. Case insensitive. Defaults to clamp.
+         */
+        wrap?: 'wrap' | 'reflect' | 'clamp'
+      }
   encode?: KtxEncodeBasisOptions | KtxEncodeUastcOptions
 }
 
@@ -252,7 +270,6 @@ export function paramsForKtxCreate({
   generateMipmap,
   encode,
 }: KtxCreateOptions) {
-
   const args = []
   if (format) {
     args.push(`--format`, format)
@@ -342,16 +359,7 @@ export function paramsForKtxCreate({
       }
     }
     if (encode.codec === 'uastc') {
-      const {
-        quality,
-        rdo,
-        rdoL,
-        rdoD,
-        rdoB,
-        rdoS,
-        rdoF,
-        rdoM,
-      } = encode
+      const { quality, rdo, rdoL, rdoD, rdoB, rdoS, rdoF, rdoM } = encode
       if (quality) {
         args.push(`--uastc-quality`, String(quality))
       }
@@ -390,18 +398,20 @@ export function paramsForKtxCreate({
   return args
 }
 
-export async function ktxCreate(options: {
-  exe?: string
-  input: string // | fs.ReadStream | Buffer
-  output: string
-} & KtxCreateOptions) {
+export async function ktxCreate(
+  options: {
+    exe?: string
+    input: string // | fs.ReadStream | Buffer
+    output: string
+  } & KtxCreateOptions,
+) {
   // https://github.com/new-world-tools/new-world-tools
   const cmd = options.exe || 'ktx'
   const args = paramsForKtxCreate(options)
   args.unshift('create')
   // const cmd = 'echo'
   // const args = ['hello world']
-  const codes = {
+  const codes: Record<number, string> = {
     0: 'Success',
     1: 'Command line error',
     2: 'IO failure',
@@ -418,7 +428,7 @@ export async function ktxCreate(options: {
   return await spawn(cmd, args, {
     shell: true,
     stdio: logger.isVerbose ? 'inherit' : null,
-  }).catch((code) => {
+  }).catch((code: number) => {
     throw codes[code] || code
   })
 
@@ -462,7 +472,6 @@ export async function ktxCreate(options: {
   //   }
   // })
 }
-
 
 // function sendBuffer(stdin: cp.ChildProcess['stdin'], binaryData: Buffer) {
 

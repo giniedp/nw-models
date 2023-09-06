@@ -1,5 +1,5 @@
-import { logger, spawn } from "../utils"
-import { resolveTool } from "./resolve-tool"
+import { logger, spawn } from '../utils'
+import { resolveTool } from './resolve-tool'
 
 export interface Collada2GltfArgs {
   exe?: string

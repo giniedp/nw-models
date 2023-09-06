@@ -1,5 +1,5 @@
-import { logger, spawn } from "../utils"
-import { resolveTool } from "./resolve-tool"
+import { logger, spawn } from '../utils'
+import { resolveTool } from './resolve-tool'
 
 export interface TexconvArgs {
   exe?: string
@@ -32,11 +32,11 @@ export async function texconv({
   invertY,
   reconstructZ,
   alpha,
-  sepalpha
+  sepalpha,
 }: TexconvArgs) {
   // https://github.com/Microsoft/DirectXTex/wiki/Texconv
   const tool = exe || resolveTool('texconv.exe')
-  const args = []
+  const args: string[] = []
   if (fileType) {
     args.push(`-ft`, fileType)
   }
@@ -50,16 +50,16 @@ export async function texconv({
     args.push(`-o`, output)
   }
   if (width) {
-    args.push(`-w`, width)
+    args.push(`-w`, String(width))
   }
   if (height) {
-    args.push(`-h`, height)
+    args.push(`-h`, String(height))
   }
   if (invertY) {
-    args.push(`-inverty`, invertY)
+    args.push(`-inverty`, String(invertY))
   }
   if (reconstructZ) {
-    args.push(`-reconstructz`, reconstructZ)
+    args.push(`-reconstructz`, String(reconstructZ))
   }
   if (alpha) {
     args.push(`-alpha`)

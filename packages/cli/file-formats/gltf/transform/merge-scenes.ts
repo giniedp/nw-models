@@ -12,8 +12,10 @@ export function mergeScenes() {
     for (const scene of scenes) {
       const children = scene.listChildren()
       for (const child of children) {
+        child.detach()
         result.addChild(child)
       }
+      scene.detach()
     }
     doc.getRoot().setDefaultScene(result)
   })

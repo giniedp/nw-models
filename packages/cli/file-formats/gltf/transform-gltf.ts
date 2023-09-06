@@ -1,4 +1,4 @@
-import { Document, Format, NodeIO, Transform } from '@gltf-transform/core'
+import { Document, Format, NodeIO, Transform, mat4 } from '@gltf-transform/core'
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
 import { draco, prune, textureCompress, unpartition } from '@gltf-transform/functions'
 
@@ -8,31 +8,33 @@ import sharp from 'sharp'
 import { Appearance } from '../../types'
 import { writeFile, writeFileBinary } from '../../utils/file-utils'
 import { logger } from '../../utils/logger'
-import { MaterialObject } from '../mtl'
+import { MtlObject } from '../mtl'
 import { nwAppearance } from './extensions/nw-appearance'
 import { NwAppearanceExtension } from './extensions/nw-appearance-extension'
 import { computeNormals } from './transform/compute-normals'
 import { mergeScenes } from './transform/merge-scenes'
 import { removeSkinning } from './transform/remove-skinning'
 import { removeVertexColor } from './transform/remove-vertex-color'
+import { uniqTextures } from './transform/uniq-textures'
+import { transformRoot } from './transform/transform-root'
+import { removeLod } from './transform/remove-lod'
 //import { toktx } from './transform/toktx';
 
 export async function transformGltf({
   meshes,
   appearance,
   output,
-  update,
   withDraco,
   withWebp,
-  withKtx
+  withKtx,
 }: {
   meshes: Array<{
     model: string
-    material: MaterialObject[]
+    material: MtlObject[]
+    transform?: number[]
   }>
   appearance: Appearance
   output: string
-  update: boolean
   withDraco?: boolean
   withWebp?: boolean
   withKtx?: boolean
@@ -48,7 +50,14 @@ export async function transformGltf({
       input: mesh.model,
       material: mesh.material,
       appearance: appearance,
+      matrix: mesh.transform,
+    }).catch(() => {
+      logger.error(`failed to transform ${mesh.model}`)
+      return null
     })
+    if (!doc) {
+      continue
+    }
     if (!document) {
       document = doc
     } else {
@@ -56,8 +65,11 @@ export async function transformGltf({
     }
   }
 
-  const transforms: Transform[] = []
+  if (!document) {
+    throw new Error('no sub models found')
+  }
 
+  const transforms: Transform[] = []
   if (meshes.length > 1) {
     transforms.push(mergeScenes())
   }
@@ -67,14 +79,19 @@ export async function transformGltf({
     transforms.push(draco({}))
   }
 
+  transforms.push(uniqTextures(), prune({}))
+
   if (withWebp) {
-    transforms.push(textureCompress({
-      encoder: sharp,
-      targetFormat: 'webp',
-      // resize: [1024, 2024],
-    }))
+    transforms.push(
+      textureCompress({
+        encoder: sharp,
+        targetFormat: 'webp',
+        //nearLossless: true,
+        slots: /(baseColor|diffuse|specularGlossiness|emissive|occlusion)/,
+      }),
+    )
   } else if (withKtx) {
-    // const slotsUASTC = /.*/;
+    // const slotsUASTC = /(baseColor|diffuse|specularGlossiness|emissive|occlusion)/;
     // transforms.push(
     //   toktx({ mode: Mode.UASTC, slots: slotsUASTC, level: 4, rdo: 4, zstd: 18 }),
     //   toktx({ mode: Mode.ETC1S, quality: 255 }),
@@ -117,10 +134,12 @@ async function writeGlb(io: NodeIO, output: string, document: Document) {
 async function transformFile({
   input,
   material,
+  matrix,
   appearance,
 }: {
   input: string
-  material: MaterialObject[]
+  material: MtlObject[]
+  matrix?: number[]
   appearance: Appearance
 }) {
   const io = new NodeIO().registerExtensions([...ALL_EXTENSIONS, NwAppearanceExtension])
@@ -128,7 +147,8 @@ async function transformFile({
   const document = await io.readJSON(jsonDocument)
   document.setLogger(logger)
 
-  await document.transform(removeSkinning(),
+  const transform: Transform[] = [
+    removeSkinning(),
     // vertex color channels are somtetimes white but sometimes black
     // default shader implementation multiplies vertex color with base color
     // which then sometimes results in black color, thus removing vertex channel here
@@ -138,13 +158,17 @@ async function transformFile({
     computeNormals({
       overwrite: true,
     }),
+    transformRoot({ matrix: matrix as mat4 }),
     nwAppearance({
       appearance,
       materials: material,
       bake: true,
     }),
+    removeLod(),
     prune({}),
-  )
+  ]
+
+  await document.transform(...transform)
 
   return document
 }

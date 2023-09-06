@@ -1,31 +1,31 @@
 import 'colors'
 import { program } from 'commander'
+import express from 'express'
 import * as fs from 'fs'
 import { cpus } from 'os'
 import * as path from 'path'
-import * as cp from 'child_process'
-import express from 'express'
 
+import { uniq } from 'lodash'
 import {
   collectAssets,
-  collectMaterials,
-  collectModels,
-  collectTextures,
   filterAssetsBySkinName,
   filterAssetsModelMaterialHash,
   isInListFilter,
   matchesAnyInList,
   readTables,
-} from './collect-assets'
-import { GAME_DIR, MODELS_DIR, SLICES_DIR, TABLES_DIR, UNPACK_DIR } from './env'
+  selectMaterials,
+  selectModels,
+  selectTextures,
+} from './collect'
+import { GAME_DIR, MODELS_DIR, SLICES_DIR, TABLES_DIR, TRANSIT_DIR, UNPACK_DIR } from './env'
 import { datasheetConverter } from './tools/datasheet-converter'
-import { pakExtractor } from './tools/pak-extractor'
-import { ItemAppearanceDefinition, ModelAsset } from './types'
-import { logger, spawn, wrapError, writeFile } from './utils'
-import { runTasks } from './worker'
 import { objectStreamConverter } from './tools/object-stream-converter'
-import { sumBy, uniq } from 'lodash'
-import { ktxCreate } from './tools/ktx-create'
+import { pakExtractor } from './tools/pak-extractor'
+import { ModelAsset } from './types'
+import { glob, logger, wrapError, writeFile } from './utils'
+import { runTasks } from './worker'
+import { parseMtlFile, readMtlFile } from './file-formats/mtl'
+import { tsFromJson } from './utils/ts-from-json'
 
 program
   .command('unpack')
@@ -76,19 +76,6 @@ program
     }).catch(wrapError('datasheet-converter failed'))
   })
 
-program.command('test-ktx')
-  .action(async () => {
-    logger.verbose(true)
-    const res = await ktxCreate({
-      format: 'R8G8B8_UNORM',
-      input: fs.readFileSync('E:\\Projects\\nw-models\\packages\\cli\\tools\\sample\\male_masterofceremonies_diff.png'),
-      // input: fs.createReadStream('E:\\Projects\\nw-models\\packages\\cli\\tools\\sample\\male_masterofceremonies_diff.png', {
-      //   encoding: 'binary'
-      // }),
-    }).catch(console.error)
-    logger.debug(res)
-  })
-
 program
   .command('convert-slices')
   .description('Converts slices to JSON format')
@@ -115,23 +102,22 @@ program
   .requiredOption('-i, --input [inputDir]', 'Path to the unpacked game directory', UNPACK_DIR)
   .requiredOption('-d, --tables [tablesDir]', 'Path to the tables directory', TABLES_DIR)
   .requiredOption('-s, --slices [slicesDir]', 'Path to the slices directory', SLICES_DIR)
+  .requiredOption('-x, --transit [transitDir]', 'Path to the intermediate directory', TRANSIT_DIR)
   .requiredOption('-o, --output [outputDir]', 'Output Path to the output directory', MODELS_DIR)
-  .option('-id, --id <appearanceId>', 'Filter by appearance id (may be substring)')
-  .option('-iid, --itemId <itemId>', 'Filter by item id (may be substring)')
-  .option('-hash, --hash <md5Hash>', 'Filter by md5 hash (must be exact)')
-  .option('-skin, --skinFile <skinFileName>', 'Filter by skin file name (may be substring)')
   .option('-u, --update', 'Ignores and overrides previous export')
-  .option('--draco', 'Enables Draco compression (default is disabled)')
-  .option('--webp', 'Converts textures to wepb before embedding into model (default is kept png)')
-  .option('--ktx', 'Compresses textures with ktx tools (KTX Tools must be installed)')
-  .option('--glb', 'Exports binary GLTF .glb files (default is JSON .gltf)')
-  .option('-t, --threads <threadCount>', 'Number of threads', String(cpus().length))
-  .option(
-    '-ts, --texture-size <textureSize>',
-    'Makes all textures the same size. Should be a power of 2 value (512, 1024, 2048 etc)',
-    '1024',
-  )
+  .option('-tc, --thread-count <threadCount>', 'Number of threads', String(cpus().length))
+  .option('-id, --id <id>', 'Filter by object identifier (may be substring, comma separated)')
+  .option('-iid, --itemId <itemId>', 'Prefilter by ItemID (may be substring, comma separated)')
+  .option('-hash, --hash <md5Hash>', 'Filter by md5 hash (must be exact, comma separated)')
+  .option('-skin, --skin <skinFile>', 'Filter by skin file name (may be substring, comma separated)')
+  .option('-at, --asset-type <assetType>', 'Filter by asset type. (must be exact, comma separated)')
+  .option('--draco', 'Enables Draco compression', false)
+  .option('--webp', 'Converts textures to wepb instead of png before embedding into model', false)
+  .option('--ktx', 'Compresses textures to ktx instead of png before embedding into model', false)
+  .option('--glb', 'Exports binary GLTF .glb files instead of .gltf JSON', false)
+  .option('-ts, --texture-size <textureSize>', 'Resize all textures to given size.', '1024')
   .option('--verbose', 'Enables log output (automatically enabled if threads is 0)')
+  .option('-slice, --slice <sliceFile>', 'Forcefully convert a single slice file')
   .action(async (opts) => {
     logger.verbose(true)
     logger.debug('convert', opts)
@@ -140,32 +126,54 @@ program
     const output: string = opts.output
     const tablesDir: string = opts.tables
     const slicesDir: string = opts.slices
-    const id: string = opts.id
-    const itemId: string = opts.itemId
-    const skinFile: string = opts.skinFile
-    const hash: string = opts.hash
-    const update: boolean = opts.update
+    const transitDir: string = opts.transit
+
+    const ids: string[] = String(opts.id || '')
+      .toLowerCase()
+      .split(',')
+      .filter((it) => !!it)
+    const itemIds: string[] = String(opts.itemId || '')
+      .toLowerCase()
+      .split(',')
+      .filter((it) => !!it)
+    const hashes: string[] = String(opts.hash || '')
+      .toLowerCase()
+      .split(',')
+      .filter((it) => !!it)
+    const skinFiles: string[] = String(opts.skin || '')
+      .toLowerCase()
+      .split(',')
+      .filter((it) => !!it)
+    const assetTypes: string[] = String(opts.assetType || '')
+      .toLowerCase()
+      .split(',')
+      .filter((it) => !!it)
+    const slices: string[] = String(opts.slice || '')
+      .toLowerCase()
+      .split(',')
+      .filter((it) => !!it)
+
+    const textureSize: number = Number(opts.textureSize) || null
     const binary: boolean = opts.glb
     const draco: boolean = opts.draco
     const webp: boolean = opts.webp
     const ktx: boolean = opts.ktx
-    const threads: number = Number(opts.threads) || 0
+
+    const threads: number = Number(opts.threadCount) || 0
     const verbose: boolean = opts.verbose ?? !threads
-    const textureSize: number = Number(opts.textureSize) || null
+    const update: boolean = opts.update
 
     logger.info('Resolving available assets')
     const tables = await readTables({ tablesDir: tablesDir }).then((data) => {
-
-      if (itemId) {
-        const itemIds = itemId.toLowerCase().split(',')
+      if (itemIds.length) {
         data.items = data.items.filter(matchesAnyInList('ItemID', itemIds))
         data.housingItems = data.housingItems.filter(matchesAnyInList('HouseItemID', itemIds))
 
-        const appearanceIds = uniq(data.items.map((it) => [
-          it.ArmorAppearanceF,
-          it.ArmorAppearanceM,
-          it.WeaponAppearanceOverride,
-        ]).flat(1)).filter((it) => !!it).map((it) => it.toLowerCase())
+        const appearanceIds = uniq(
+          data.items.map((it) => [it.ArmorAppearanceF, it.ArmorAppearanceM, it.WeaponAppearanceOverride]).flat(1),
+        )
+          .filter((it) => !!it)
+          .map((it) => it.toLowerCase())
 
         data = {
           ...data,
@@ -176,8 +184,7 @@ program
         }
       }
 
-      if (id) {
-        const ids = id.toLowerCase().split(',')
+      if (ids.length) {
         data = {
           ...data,
           housingItems: data.housingItems.filter(matchesAnyInList('HouseItemID', ids)),
@@ -188,6 +195,23 @@ program
         }
       }
 
+      if (assetTypes.length) {
+        // keep only selected asset types
+        Object.keys(data).forEach((key: keyof typeof data) => {
+          if (!assetTypes.includes(key.toLowerCase())) {
+            data[key] = []
+          }
+        })
+      } else if (!itemIds.length && !ids.length) {
+        // exclude experimental stuff from default export
+        data.housingItems = []
+      }
+
+      if (slices.length) {
+        Object.keys(data).forEach((key: keyof typeof data) => {
+          data[key] = []
+        })
+      }
       return data
     })
 
@@ -195,22 +219,23 @@ program
       ...tables,
       sourceRoot: input,
       slicesRoot: slicesDir,
-      extname: binary ? '.glb' : '.gltf'
+      extname: binary ? '.glb' : '.gltf',
+      slices: slices,
     }).then((list) => {
-      list = filterAssetsBySkinName(skinFile, list)
-      list = filterAssetsModelMaterialHash(hash, list)
+      list = filterAssetsBySkinName(skinFiles, list)
+      list = filterAssetsModelMaterialHash(hashes, list)
       return list
     })
 
-    const models = await collectModels({
+    const models = await selectModels({
       sourceRoot: input,
       assets: assets,
     })
-    const materials = await collectMaterials({
+    const materials = await selectMaterials({
       sourceRoot: input,
       assets: assets,
     })
-    const textures = await collectTextures({
+    const textures = await selectTextures({
       sourceRoot: input,
       assets: assets,
     })
@@ -220,6 +245,7 @@ program
         '',
         `    assets: ${logger.ansi.yellow(String(assets.length))}`,
         `    models: ${logger.ansi.yellow(String(models.length))}`,
+        ` materials: ${logger.ansi.yellow(String(materials.length))}`,
         `  textures: ${logger.ansi.yellow(String(textures.length))}`,
         ``,
       ].join('\n'),
@@ -235,7 +261,7 @@ program
       tasks: textures.map((texture) => {
         return {
           sourceRoot: input,
-          targetRoot: output,
+          targetRoot: transitDir,
           texture: texture,
           update: update,
           texSize: textureSize,
@@ -252,7 +278,7 @@ program
       tasks: materials.map((file) => {
         return {
           sourceRoot: input,
-          targetRoot: output,
+          targetRoot: transitDir,
           material: file,
           update: update,
         }
@@ -268,7 +294,7 @@ program
       tasks: models.map(({ model, material, hash }) => {
         return {
           sourceRoot: input,
-          targetRoot: output,
+          targetRoot: transitDir,
           hash: hash,
           update,
           model: model,
@@ -287,12 +313,13 @@ program
         return {
           ...asset,
           sourceRoot: input,
+          transitRoot: transitDir,
           targetRoot: output,
           update,
           binary,
           webp,
           draco,
-          ktx
+          ktx,
         }
       }),
     })
@@ -302,8 +329,6 @@ program
       outDir: output,
       assets: assets,
     })
-
-    logger.info('Done. Run `yarn viewer` to view the models.')
   })
 
 program
@@ -320,6 +345,31 @@ program
       console.log(`Viewer is served at http://localhost:${options.port}`)
     })
   })
+
+program.command('inspect').action(async () => {
+  const files = await glob(path.join(UNPACK_DIR, '**/*.mtl'))
+  const samples: string[] = []
+  for (const file of files) {
+    const mtl = parseMtlFile(fs.readFileSync(file, { encoding: 'utf-8' }))
+    samples.push(JSON.stringify(mtl))
+  }
+  const result = await tsFromJson('Material', samples)
+  const code = result.lines.join('\n')
+  fs.writeFileSync(path.join(process.cwd(), 'tmp/material.ts'), code, { encoding: 'utf-8' })
+  // const params = new Set<string>()
+  // let min = Number.MAX_VALUE
+  // let max = Number.MIN_VALUE
+  // for (const file of files) {
+  //   const materials = await readMtlFile(file)
+  //   for (const mtl of materials) {
+  //     if (mtl.attrs.Shininess) {
+  //       min = Math.min(min, Number(mtl.attrs.Shininess))
+  //       max = Math.max(max, Number(mtl.attrs.Shininess))
+  //     }
+  //   }
+  // }
+  // console.log('Shininess', min, max)
+})
 
 program.parse(process.argv)
 
@@ -339,6 +389,7 @@ async function writeStats({ outDir, assets }: { assets: ModelAsset[]; outDir: st
 
     return {
       ...item,
+      meshCount: item.meshes.length,
       filePath: modelFile,
       fileSize: modelSize,
       hasModel: modelExists && modelSize > 0,
@@ -350,7 +401,9 @@ async function writeStats({ outDir, assets }: { assets: ModelAsset[]; outDir: st
       ``,
       `       assets: ${logger.ansi.yellow(String(assetCount))}`,
       `    converted: ${logger.ansi.yellow(String(modelCount))}`,
-      `       failed: ${modelMissing ? logger.ansi.red(String(modelMissing)) : logger.ansi.green(String(modelMissing))}`,
+      `       failed: ${
+        modelMissing ? logger.ansi.red(String(modelMissing)) : logger.ansi.green(String(modelMissing))
+      }`,
       `         size: ${logger.ansi.yellow(String(Math.round(sizeInBytes / 1024 / 1024)))} MB`,
       ``,
     ].join('\n'),
@@ -360,5 +413,3 @@ async function writeStats({ outDir, assets }: { assets: ModelAsset[]; outDir: st
     encoding: 'utf-8',
   })
 }
-
-
