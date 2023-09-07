@@ -51,8 +51,8 @@ export async function transformGltf({
       material: mesh.material,
       appearance: appearance,
       matrix: mesh.transform,
-    }).catch(() => {
-      logger.error(`failed to transform ${mesh.model}`)
+    }).catch((err) => {
+      logger.warn(`mesh ignored: `, err)
       return null
     })
     if (!doc) {

@@ -44,15 +44,12 @@ export function computeNormals(_options: NormalsOptions = NORMALS_DEFAULTS): Tra
 
         const faceCount = indices.getCount() / 3
         const data = new Float32Array(position.getCount() * 3)
-        normal = document
-          .createAccessor()
-          .setArray(data)
-          .setType('VEC3')
+        normal = document.createAccessor().setArray(data).setType('VEC3')
 
         for (let i = 0; i < faceCount; i++) {
-          v1Index = indices.getScalar(i * 3);
-          v2Index = indices.getScalar(i * 3 + 1);
-          v3Index = indices.getScalar(i * 3 + 2);
+          v1Index = indices.getScalar(i * 3)
+          v2Index = indices.getScalar(i * 3 + 1)
+          v3Index = indices.getScalar(i * 3 + 2)
 
           position.getElement(v1Index, v1)
           position.getElement(v2Index, v2)
@@ -69,7 +66,7 @@ export function computeNormals(_options: NormalsOptions = NORMALS_DEFAULTS): Tra
           faceNormal[1] = p1[2] * p2[0] - p1[0] * p2[2]
           faceNormal[2] = p1[0] * p2[1] - p1[1] * p2[0]
           normalize(faceNormal)
-          
+
           data[v1Index * 3 + 0] += faceNormal[0]
           data[v1Index * 3 + 1] += faceNormal[1]
           data[v1Index * 3 + 2] += faceNormal[2]
@@ -82,7 +79,7 @@ export function computeNormals(_options: NormalsOptions = NORMALS_DEFAULTS): Tra
           data[v3Index * 3 + 1] += faceNormal[1]
           data[v3Index * 3 + 2] += faceNormal[2]
         }
-        
+
         for (let i = 0; i < data.length; i += 3) {
           tmpNormal[0] = data[i + 0]
           tmpNormal[1] = data[i + 1]
@@ -98,18 +95,14 @@ export function computeNormals(_options: NormalsOptions = NORMALS_DEFAULTS): Tra
       }
     }
 
-    if (!modified) {
-      logger.warn(`${NAME}: No qualifying primitives found. See debug output.`)
-    } else {
-      logger.debug(`${NAME}: Complete. Modified ${modified} primitives.`)
-    }
+    logger.debug(`${NAME}: Complete. Modified ${modified} primitives.`)
   })
 }
 
 function normalize(normal: vec3) {
-  let length = Math.sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
-  length = length === 0 ? 1.0 : length;
-  normal[0] /= length;
-  normal[1] /= length;
-  normal[2] /= length;
+  let length = Math.sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2])
+  length = length === 0 ? 1.0 : length
+  normal[0] /= length
+  normal[1] /= length
+  normal[2] /= length
 }

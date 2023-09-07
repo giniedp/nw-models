@@ -375,16 +375,16 @@ program.parse(process.argv)
 
 async function writeStats({ outDir, assets }: { assets: ModelAsset[]; outDir: string }) {
   let assetCount = assets.length
-  let modelCount = 0
-  let modelMissing = 0
+  let fileCount = 0
+  let filesMissing = 0
   let sizeInBytes = 0
 
   const stats = assets.map((item) => {
     const modelFile = path.join(outDir, item.outDir, item.outFile).toLowerCase()
     const modelExists = fs.existsSync(modelFile)
     const modelSize = modelExists ? fs.statSync(modelFile).size : 0
-    modelCount += modelExists ? 1 : 0
-    modelMissing += modelExists ? 0 : 1
+    fileCount += modelExists ? 1 : 0
+    filesMissing += modelExists ? 0 : 1
     sizeInBytes += modelSize
 
     return {
@@ -400,9 +400,9 @@ async function writeStats({ outDir, assets }: { assets: ModelAsset[]; outDir: st
     [
       ``,
       `       assets: ${logger.ansi.yellow(String(assetCount))}`,
-      `    converted: ${logger.ansi.yellow(String(modelCount))}`,
+      `    converted: ${logger.ansi.yellow(String(fileCount))}`,
       `       failed: ${
-        modelMissing ? logger.ansi.red(String(modelMissing)) : logger.ansi.green(String(modelMissing))
+        filesMissing ? logger.ansi.red(String(filesMissing)) : logger.ansi.green(String(filesMissing))
       }`,
       `         size: ${logger.ansi.yellow(String(Math.round(sizeInBytes / 1024 / 1024)))} MB`,
       ``,

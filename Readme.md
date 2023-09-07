@@ -10,7 +10,9 @@ Make sure your environment meets the following requirements:
 
 - Node 18
 - Yarn
-- Enough disk space for the intermediate models and texture artifacts ~100GB (>250GB when not limiting texture size)
+- Enough disk space
+
+Disk space requirements depend on which models how many you want to extract. Intermediate files, especially textures eat up a lot of space. Additionally textures are embedded in the final model file.
 
 Clone the repo
 
@@ -42,7 +44,7 @@ If you have not converted datatables to JSON yet, run
 yarn convert-tables
 ```
 
-If you plan to extract housing items, run
+If you plan to extract housing items, or creatures or models from `.dynamicslice` files, run
 
 > HINT: this is WIP, housing items are not supported yet
 
@@ -62,23 +64,29 @@ This command takes the following options
 
 ```
 Options:
-  -i, --input [inputDir]             Path to the unpacked game directory (default: "out/data")
+  -i, --input [inputDir]             Path to the unpacked game directory (default: "../nw-data/live")
   -d, --tables [tablesDir]           Path to the tables directory (default: "out\\tables")
   -s, --slices [slicesDir]           Path to the slices directory (default: "out\\slices")
+  -x, --transit [transitDir]         Path to the intermediate directory (default: "out\\transit")
   -o, --output [outputDir]           Output Path to the output directory (default: "out\\models")
-  -id, --id <appearanceId>           Filter by appearance id (may be part of ID)
-  -hash, --hash <md5Hash>            Filter by md5 hash
-  -skin, --skinFile <skinFileName>   Filter by skin file name (may be part of name)
   -u, --update                       Ignores and overrides previous export
-  -t, --threads <threadCount>        Number of threads (default: "32")
-  -ts, --texture-size <textureSize>  Makes all textures the same size. Should be a power of 2 value (512, 1024, 2048 etc) (default: "1024")
+  -tc, --thread-count <threadCount>  Number of threads (default: "32")
+  -id, --id <id>                     Filter by object identifier (may be substring, comma separated)
+  -iid, --itemId <itemId>            Prefilter by ItemID (may be substring, comma separated)
+  -hash, --hash <md5Hash>            Filter by md5 hash (must be exact, comma separated)
+  -skin, --skin <skinFile>           Filter by skin file name (may be substring, comma separated)
+  -at, --asset-type <assetType>      Filter by asset type. (must be exact, comma separated)
+  --draco                            Enables Draco compression (default: false)
+  --webp                             Converts textures to wepb instead of png before embedding into model (default: false)
+  --ktx                              Compresses textures to ktx instead of png before embedding into model (default: false)
+  --glb                              Exports binary GLTF .glb files instead of .gltf JSON (default: false)
+  -ts, --texture-size <textureSize>  Resize all textures to given size. (default: "1024")
   --verbose                          Enables log output (automatically enabled if threads is 0)
+  -slice, --slice <sliceFile>        Forcefully convert a single slice file
   -h, --help                         display help for command
 ```
 
-The `texture-size` parameter is currently needed because an internal library requires the textures to be the same size when they are blended with each other.
-Pass a higher value here if you want to have higher resolution textures. You can also disable the texture
-scaling by passing a `0`. This will keep the original texture size. However, some item models wont be tinted correctly.
+The `texture-size` parameter is currently needed to make all textures uniform size, which helps in processing phase.
 
 ## Output Folder Structure
 
@@ -89,9 +97,8 @@ out/
 ├─ data/                           // data unpack dir for `yarn unpack`
 ├─ tables/                         // data tables dir for `yarn convert-tables`
 ├─ slices/                         // data unpack dir for `yarn convert-slices`
+├─ transit/                        // directory with intermediate files (textures, models, mats)
 ├─ models/
-│  ├─ objects/                     // intermediate working directory
-│  ├─ ...                          // bunch of other intermediate folders
 │  ├─ instrumentappearances/       // final models for instruments
 │  ├─ itemappearances/             // final models for armors and weapons
 │  ├─ weaponappearances/           // final models for weapons
@@ -117,6 +124,16 @@ would be from
 - object with `ItemId: m_voidbentheavy_chest`
 - the model at property `Skin1`
 
+# Convert models from slices
+
+To extract a model from slice files, use the `--slice` parameter, e.g.
+
+```
+yarn convert --slice characters/**/*.dynamicslice.json
+```
+
+This will convert all slices under the `characters` directory, which contains all creatures
+
 # Preview Models
 
 To preview the models, run
@@ -131,7 +148,5 @@ This will start a server and open the browser listing all converted models, allo
 
 - Extract Bones and Animations
 - Extract Housing items
-- Allow to extract specific models, that are not referenced in the datasheets (structures, expeditions?)
 - Optimize textures (https://www.khronos.org/assets/uploads/apis/KTX-2.0-Launch-Overview-Apr21_.pdf)
 - Overcome the texture size limitation
-- Use https://gltf-transform.donmccurdy.com/ instead of Babylon.js scene to transform the model

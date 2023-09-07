@@ -13,7 +13,6 @@
     "convert": "yarn cli convert",
     "clean": "yarn nx reset && yarn rimraf dist",
     "viewer": "yarn cli viewer",
-    "inspect": "yarn cli inspect",
     "cli": "yarn build && env-cmd -f .env node ./dist/cli/index.js"
   },
   "author": "Ginie",

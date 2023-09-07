@@ -1,6 +1,12 @@
 import { Document, Texture, vec3, vec4 } from '@gltf-transform/core'
-import { KHRMaterialsPBRSpecularGlossiness, PBRSpecularGlossiness } from '@gltf-transform/extensions'
+import {
+  KHRMaterialsPBRSpecularGlossiness,
+  KHRMaterialsTransmission,
+  PBRSpecularGlossiness,
+} from '@gltf-transform/extensions'
 import { createTransform } from '@gltf-transform/functions'
+import * as fs from 'fs'
+import { isFinite } from 'lodash'
 import {
   MtlObject,
   getMaterial,
@@ -8,12 +14,10 @@ import {
   getMaterialParamVec,
   getMaterialTextures,
 } from '../../../file-formats/mtl'
-import * as fs from 'fs'
 import { Appearance, getAppearanceId } from '../../../types'
 import { replaceExtname } from '../../../utils/file-utils'
 import { NwAppearanceExtension } from './nw-appearance-extension'
-import { blendDiffuseMap, blendSpecularMap, hexToRgb, mergeSpecularGloss, rgbToHex, textureCache } from './utils'
-import { isFinite, isNumber } from 'lodash'
+import { blendDiffuseMap, blendSpecularMap, hexToRgb, mergeSpecularGloss, textureCache } from './utils'
 
 export interface NwAppearanceOptions {
   materials: MtlObject[]
@@ -32,6 +36,30 @@ async function transformMaterials(doc: Document, { appearance, materials, bake }
   const root = doc.getRoot()
   if (!root.listMaterials()?.length) {
     return
+  }
+
+  // remove all meshes, that are drawn with the NoDraw shader
+  for (const mesh of root.listMeshes()) {
+    for (const prim of mesh.listPrimitives()) {
+      const material = prim.getMaterial()
+      if (!material) {
+        continue
+      }
+      const mtl = getMaterial(materials, material.getName())
+      if (mtl?.Shader !== 'NoDraw') {
+        continue
+      }
+      prim.detach()
+    }
+  }
+
+  // remove all materials, that have the NoDraw shader
+  for (const material of root.listMaterials()) {
+    const mtl = getMaterial(materials, material.getName())
+    if (mtl?.Shader !== 'NoDraw') {
+      continue
+    }
+    material.detach()
   }
 
   const cache = textureCache(doc)
@@ -64,7 +92,9 @@ async function transformMaterials(doc: Document, { appearance, materials, bake }
     // Items that glow have an emit color map
     const mapEmittance = mtlTextures.find((it) => it.Map === 'Emittance')
     const mapOpacity = mtlTextures.find((it) => it.Map === 'Opacity')
+    const isGlass = mtl.Shader === 'Glass'
 
+    logger.debug(`SHADER`, mtl.Shader)
     logger.debug(`mtlDiffuse`, mtlDiffuse)
     logger.debug(`mtlSpecular`, mtlSpecular)
     logger.debug(`mtlEmissive`, mtlEmissive)
@@ -78,17 +108,19 @@ async function transformMaterials(doc: Document, { appearance, materials, bake }
     logger.debug(`mapSpecular ${mapSpecular?.File}`)
     logger.debug(`mapCustom ${mapCustom?.File}`)
     logger.debug(`mapEmit ${mapEmittance?.File}`)
-
-    if (mtlDiffuse && mtlDiffuse.length === 4) {
-      material.setBaseColorFactor(mtlDiffuse as vec4)
-    }
+    logger.debug(mtl)
+    logger.debug(mtlTextures.map((it) => it.Map))
+    let texDiffuse: Texture
+    let texBumpmap: Texture
+    let texEmissive: Texture
+    let texCustom: Texture
+    let texSpecular: Texture
 
     if (!mapSmoothness && mapBumpmap) {
       logger.debug('use mapBumpmap as mapSmoothness')
       mapSmoothness = mapBumpmap
     }
 
-    let texDiffuse: Texture
     if (mapCustom?.File && mapDiffuse?.File && bake && appearance) {
       const key = `${getAppearanceId(appearance)}-${mapDiffuse.File}-${mapCustom.File}}`.toLowerCase()
       texDiffuse = await cache
@@ -115,19 +147,12 @@ async function transformMaterials(doc: Document, { appearance, materials, bake }
         return null
       })
     }
-    if (texDiffuse) {
-      material.setMetallicFactor(0)
-      material.setBaseColorTexture(texDiffuse)
-    }
 
     if (mapBumpmap?.File) {
       const key = `${mapBumpmap.File}`.toLowerCase()
-      const tex = await cache.addTextureFromFile(key, mapBumpmap.Map)
-      material.setNormalTexture(tex)
-      material.setNormalScale(1)
+      texBumpmap = await cache.addTextureFromFile(key, mapBumpmap.Map)
     }
 
-    let texSpecular: Texture = null
     if (mapSpecular?.File && mapCustom?.File && bake && appearance) {
       const key = `${getAppearanceId(appearance)}-${mapSpecular.File}-${mapCustom.File}`.toLowerCase()
       texSpecular = await cache
@@ -154,7 +179,6 @@ async function transformMaterials(doc: Document, { appearance, materials, bake }
         return null
       })
     }
-
     if (texSpecular) {
       if (mapSmoothness && fs.existsSync(replaceExtname(mapSmoothness.File, '.a.png'))) {
         const glossFile = replaceExtname(mapSmoothness.File, '.a.png')
@@ -179,7 +203,29 @@ async function transformMaterials(doc: Document, { appearance, materials, bake }
             return texSpecular
           })
       }
+    }
 
+    if (mapEmittance?.File) {
+      const key = mapEmittance.File.toLowerCase()
+      texEmissive = await cache.addTextureFromFile(key, mapEmittance.Map)
+    }
+    if (mapCustom?.File) {
+      const key = mapCustom.File.toLowerCase()
+      texCustom = await cache.addTextureFromFile(key, mapCustom.Map)
+    }
+
+    if (mtlDiffuse && mtlDiffuse.length === 4) {
+      material.setBaseColorFactor(mtlDiffuse as vec4)
+    }
+    if (texDiffuse) {
+      material.setMetallicFactor(0)
+      material.setBaseColorTexture(texDiffuse)
+    }
+    if (texBumpmap) {
+      material.setNormalTexture(texBumpmap)
+      material.setNormalScale(1)
+    }
+    if (texSpecular && !isGlass) {
       const specExt = doc.createExtension(KHRMaterialsPBRSpecularGlossiness)
       specExt.setRequired(true)
       const specProps =
@@ -203,13 +249,10 @@ async function transformMaterials(doc: Document, { appearance, materials, bake }
       }
     }
 
-    if (mapEmittance) {
-      const key = mapEmittance.File.toLowerCase()
-      const texEmit = await cache.addTextureFromFile(key, mapEmittance.Map)
-      material.setEmissiveTexture(texEmit)
+    if (texEmissive) {
+      material.setEmissiveTexture(texEmissive)
       material.setEmissiveFactor([1, 1, 1])
     }
-
     if (appearance?.EmissiveColor) {
       // max value of EmissiveIntensity is 10
       logger.debug('EMISSIVE', appearance.EmissiveIntensity, appearance.EmissiveColor)
@@ -225,7 +268,6 @@ async function transformMaterials(doc: Document, { appearance, materials, bake }
     }
 
     material.setAlphaMode('OPAQUE')
-    logger.debug('Alpha mode OPAQUE')
     if (isFinite(mtlAlphaTest) && mtlAlphaTest >= 0) {
       material.setAlphaCutoff(mtlAlphaTest)
       material.setAlphaMode('MASK')
@@ -236,19 +278,21 @@ async function transformMaterials(doc: Document, { appearance, materials, bake }
       material.setAlphaMode('BLEND')
       material.setDoubleSided(true)
     }
+    if (isGlass) {
+      const ext = doc.createExtension(KHRMaterialsTransmission)
+      const props = ext.createTransmission()
+      props.setTransmissionFactor(mtlOpacity ?? 1)
+      material.setExtension(KHRMaterialsTransmission.EXTENSION_NAME, props)
+    }
 
-    if (appearance && mapCustom?.File) {
+    if (appearance && texCustom) {
       const extension = doc.createExtension(NwAppearanceExtension)
       extension.setRequired(false)
       const props = extension.createProps()
       props.setData({
         ...appearance,
       })
-      if (mapCustom?.File) {
-        const key = mapCustom.File.toLowerCase()
-        const tex = await cache.addTextureFromFile(key, mapCustom.Map)
-        props.setMaskTexture(tex)
-      }
+      props.setMaskTexture(texCustom)
       material.setExtension(NwAppearanceExtension.EXTENSION_NAME, props)
     }
   }

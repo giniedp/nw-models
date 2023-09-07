@@ -73,12 +73,12 @@
       floatingFilter: true,
     },
     {
-      headerName: 'Has Model',
+      headerName: 'OK',
       field: 'hasModel',
       filter: true,
-      resizable: true,
+      resizable: false,
       sortable: true,
-      width: 150,
+      width: 75,
       cellRenderer: ({ value }: ICellRendererParams) => (value ? '✅' : '❌'),
     },
     {
@@ -86,8 +86,36 @@
       field: 'fileSize',
       resizable: true,
       sortable: true,
-      width: 150,
+      width: 100,
       valueFormatter: ({ value }) => `${((value || 0) / 1024 / 1024).toFixed(2)}Mb`,
+    },
+    {
+      headerName: 'Shader',
+      field: '_shaders',
+      filter: true,
+      resizable: true,
+      floatingFilter: true,
+      width: 150,
+      cellRenderer: ({ value }: ICellRendererParams) => {
+        const tags = (value || '')
+          .map((it: unknown) => `<span class="badge badge-xs badge-primary">${it}</span>`)
+          .join('')
+        return `<div class="flex flex-row flex-wrap gap-1 p-1">${tags}</div>`
+      },
+    },
+    {
+      headerName: 'Textures',
+      field: '_textures',
+      filter: true,
+      resizable: true,
+      floatingFilter: true,
+      width: 300,
+      cellRenderer: ({ value }: ICellRendererParams) => {
+        const tags = (value || '')
+          .map((it: unknown) => `<span class="badge badge-xs badge-primary">${it}</span>`)
+          .join('')
+        return `<div class="flex flex-row flex-wrap gap-1 p-1 h-full">${tags}</div>`
+      },
     },
   ]
 </script>

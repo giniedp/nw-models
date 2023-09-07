@@ -41,8 +41,6 @@ export interface DyeChannel {
 
 export type Viewer = ReturnType<typeof initViewer>
 export function initViewer({ el, modelUrl, dyeR, dyeG, dyeB, dyeA, debugMask, appearance }: BabylonViewerOptions) {
-
-
   const viewer = new DefaultViewer(el, {
     model: {
       rotationOffsetAngle: 0,
@@ -55,24 +53,30 @@ export function initViewer({ el, modelUrl, dyeR, dyeG, dyeB, dyeA, debugMask, ap
     } as any,
   })
   let unsub: Unsubscriber | null
+
   viewer.onModelLoadedObservable.add((model) => {
     unsub?.()
     unsub = null
 
-    const foundAppearance = model.meshes.map((mesh) => DyeLoaderExtension.getAppearance(mesh.material)).find((it) => !!it)
+    const foundAppearance = model.meshes
+      .map((mesh) => DyeLoaderExtension.getAppearance(mesh.material))
+      .find((it) => !!it)
     appearance.set(foundAppearance)
 
-    unsub = derived([appearance, dyeR, dyeG, dyeB, dyeA, debugMask], (it) => it).subscribe(([data, r, g, b, a, debug]) => {
-      updateDyeChannel({
-        model,
-        appearance: data!,
-        dyeR: r?.Color || null,
-        dyeG: g?.Color || null,
-        dyeB: b?.Color || null,
-        dyeA: a?.Color || null,
-        debugMask: !!debug,
-      })
-    })
+    unsub = derived([appearance, dyeR, dyeG, dyeB, dyeA, debugMask], (it) => it).subscribe(
+      ([data, r, g, b, a, debug]) => {
+        updateDyeChannel({
+          model,
+          appearance: data!,
+          dyeR: r?.Color || null,
+          dyeG: g?.Color || null,
+          dyeB: b?.Color || null,
+          dyeA: a?.Color || null,
+          debugMask: !!debug,
+        })
+      },
+    )
+    viewer.sceneManager.scene.debugLayer.show()
   })
 
   return {

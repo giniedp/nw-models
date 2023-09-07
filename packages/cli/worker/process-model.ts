@@ -91,14 +91,27 @@ export async function preprocessModel({
       })
       .catch(wrapError(`cgf-converter failed\n\t${files.model}`))
 
-    // TODO: review paths. fix and remove this workaround
     await transformTextFile(files.dae, async (text) => {
-      return text.replace(/<init_from>([^<]*\.(png|dds))<\/init_from>/gm, (match, texturePath) => {
+      // TODO: review paths. fix and remove this workaround
+      text = text.replace(/<init_from>([^<]*\.(png|dds))<\/init_from>/gm, (match, texturePath) => {
         texturePath = texturePath.replace(/(..[/\\])+/, '')
         texturePath = path.join(targetRoot, texturePath)
         texturePath = path.relative(path.dirname(files.dae), replaceExtname(texturePath, '.png'))
         return `<init_from>${texturePath}<\/init_from>`
       })
+      // colladaToGltf fails, when materials contain extra tags
+      // remove them
+      text = text
+        .split('<extra>')
+        .map((it) => {
+          const index = it.indexOf('</extra>')
+          if (index > 0) {
+            it = it.substr(index + 8)
+          }
+          return it
+        })
+        .join('')
+      return text
     }).catch(wrapError(`transform dae model failed`))
   } else {
     logger.info(`skipped ${files.dae}`)

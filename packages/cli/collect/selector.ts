@@ -8,15 +8,23 @@ import { replaceExtname } from '../utils/file-utils'
 export async function selectTextures({ sourceRoot, assets }: { sourceRoot: string; assets: ModelAsset[] }) {
   const result = new CaseInsensitiveSet<string>()
   for (const asset of assets) {
+    const mtlTags = new CaseInsensitiveSet<string>()
+    const texTags = new CaseInsensitiveSet<string>()
     for (const mesh of asset.meshes) {
       const mtl = await loadMtlFile(path.join(sourceRoot, mesh.material))
       for (const it of mtl) {
+        mtlTags.add(it.Shader)
         const textures = getMaterialTextures(it) || []
         for (const texture of textures) {
+          texTags.add(texture.Map)
           result.add(replaceExtname(texture.File, '.dds'))
         }
       }
     }
+    Object.assign(asset, {
+      _shaders: Array.from(mtlTags.values()).filter((it) => !!it),
+      _textures: Array.from(texTags.values()).filter((it) => !!it),
+    })
   }
   return Array.from(result)
 }
