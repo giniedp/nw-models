@@ -66,9 +66,8 @@ async function transformMaterials(doc: Document, { appearance, materials, bake }
 
   for (const material of root.listMaterials()) {
     const materialIndex = root.listMaterials().indexOf(material)
-    logger.debug(`MATERIAL ${materialIndex}: ${material.getName()}`)
-
     const mtl = getMaterial(materials, material.getName())
+
     const mtlDiffuse = getMaterialParamVec(mtl, 'Diffuse')
     const mtlSpecular = getMaterialParamVec(mtl, 'Specular')
     const mtlEmissive = getMaterialParamVec(mtl, 'Emissive')
@@ -92,24 +91,31 @@ async function transformMaterials(doc: Document, { appearance, materials, bake }
     // Items that glow have an emit color map
     const mapEmittance = mtlTextures.find((it) => it.Map === 'Emittance')
     const mapOpacity = mtlTextures.find((it) => it.Map === 'Opacity')
+    const mapDecal = mtlTextures.find((it) => it.Map === 'Decal')
     const isGlass = mtl.Shader === 'Glass'
 
-    logger.debug(`SHADER`, mtl.Shader)
-    logger.debug(`mtlDiffuse`, mtlDiffuse)
-    logger.debug(`mtlSpecular`, mtlSpecular)
-    logger.debug(`mtlEmissive`, mtlEmissive)
-    logger.debug(`mtlEmittance`, mtlEmittance)
-    logger.debug(`mtlOpacity`, mtlOpacity)
-    logger.debug(`mtlAlphaTest`, mtlAlphaTest)
-    logger.debug(`mtlShininess`, mtlShininess)
-    logger.debug(`mapDiffuse ${mapDiffuse?.File}`)
-    logger.debug(`mapBumpmap ${mapBumpmap?.File}`)
-    logger.debug(`mapSmoothness ${mapSmoothness?.File}`)
-    logger.debug(`mapSpecular ${mapSpecular?.File}`)
-    logger.debug(`mapCustom ${mapCustom?.File}`)
-    logger.debug(`mapEmit ${mapEmittance?.File}`)
-    logger.debug(mtl)
-    logger.debug(mtlTextures.map((it) => it.Map))
+    logger.debug(`==== MATERIAL: ${material.getName()} ===`)
+    logger.debug(`  index      : ${materialIndex}`)
+    logger.debug(`  mats       : ${materials?.map((it) => it.Name).join(',')}`)
+    logger.debug(`  found      : ${!!mtl}`)
+    logger.debug(`  shader     :`, mtl.Shader)
+    logger.debug(`  Diffuse    :`, mtlDiffuse)
+    logger.debug(`  Specular   :`, mtlSpecular)
+    logger.debug(`  Emissive   :`, mtlEmissive)
+    logger.debug(`  Emittance  :`, mtlEmittance)
+    logger.debug(`  Opacity    :`, mtlOpacity)
+    logger.debug(`  AlphaTest  :`, mtlAlphaTest)
+    logger.debug(`  Shininess  :`, mtlShininess)
+    logger.debug(`  textures   : ${mtlTextures.map((it) => it.Map)}`)
+    logger.debug(`  Diffuse    : ${mapDiffuse?.File}`)
+    logger.debug(`  Bumpmap    : ${mapBumpmap?.File}`)
+    logger.debug(`  Smoothness : ${mapSmoothness?.File}`)
+    logger.debug(`  Specular   : ${mapSpecular?.File}`)
+    logger.debug(`  Custom     : ${mapCustom?.File}`)
+    logger.debug(`  Emit       : ${mapEmittance?.File}`)
+    logger.debug(`  Decal      : ${mapDecal?.File}`)
+    logger.debug(`  params     :`, mtl)
+
     let texDiffuse: Texture
     let texBumpmap: Texture
     let texEmissive: Texture

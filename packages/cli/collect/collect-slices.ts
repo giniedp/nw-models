@@ -1,9 +1,9 @@
 import fs from 'fs'
 import path from 'path'
 import { getModelsFromCdf } from '../file-formats/cdf'
-import { getHousingItemMeshes } from '../file-formats/dynamicslice'
+import { getModelsFromSlice } from '../file-formats/dynamicslice'
 import { ModelMeshAsset } from '../types'
-import { glob, readJsonFile } from '../utils/file-utils'
+import { glob, readJsonFile, replaceExtname } from '../utils/file-utils'
 import { logger } from '../utils/logger'
 import { AssetCollector } from './asset-collector'
 
@@ -11,31 +11,49 @@ export async function collectSlices(slicesDir: string, items: string[], collecto
   const outDir = 'slices'
   items = await glob(items.map((it) => path.join(slicesDir, it)))
   for (const sliceFile of items) {
-    if (!fs.existsSync(sliceFile)) {
-      logger.warn('missing slice', sliceFile)
-      continue
-    }
-    const meshes = await getMeshesFromSlice(sliceFile, collector).catch((err) => {
-      logger.error(err)
-      return []
-    })
-    if (!meshes.length) {
-      logger.warn('missing meshes', sliceFile)
-      continue
-    }
-    await collector.addAsset({
-      appearance: null,
-      meshes: meshes,
-      outDir: outDir,
-      outFile: path.relative(slicesDir, sliceFile),
+    await collectFromSlice({
+      slicesDir,
+      sliceFile,
+      outDir,
+      collector,
     })
   }
 }
 
+export async function collectFromSlice({
+  slicesDir,
+  sliceFile,
+  outDir,
+  collector,
+}: {
+  slicesDir: string
+  sliceFile: string
+  outDir: string
+  collector: AssetCollector
+}) {
+  if (!fs.existsSync(sliceFile)) {
+    logger.warn('missing slice', sliceFile)
+    return
+  }
+  const meshes = await getMeshesFromSlice(sliceFile, collector).catch((err) => {
+    logger.error(err)
+    return []
+  })
+  if (!meshes.length) {
+    logger.warn('missing meshes', sliceFile)
+    return
+  }
+  await collector.addAsset({
+    appearance: null,
+    meshes: meshes,
+    outDir: outDir,
+    outFile: path.relative(slicesDir, replaceExtname(sliceFile, '')),
+  })
+}
+
 async function getMeshesFromSlice(sliceFile: string, collector: AssetCollector) {
-  logger.debug('reading slice', sliceFile)
   const sliceJSON = await readJsonFile(sliceFile)
-  const meshes = await getHousingItemMeshes(sliceJSON)
+  const meshes = await getModelsFromSlice(sliceJSON)
   const result: ModelMeshAsset[] = []
   for (let { model, material, transform } of meshes) {
     if (!model) {
@@ -53,22 +71,10 @@ async function getMeshesFromSlice(sliceFile: string, collector: AssetCollector) 
     } else {
       result.push({
         model,
-        material: material || (await getNearestMaterial(model, collector)),
+        material: material,
         transform,
       })
     }
   }
   return result
-}
-
-async function getNearestMaterial(model: string, collector: AssetCollector) {
-  if (!model) {
-    return null
-  }
-  // TODO: get material from model
-  const materials = await glob([path.join(collector.sourceRoot, path.dirname(model), '*.mtl')])
-  if (materials.length) {
-    return path.relative(collector.sourceRoot, materials[0])
-  }
-  return null
 }

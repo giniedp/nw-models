@@ -1,11 +1,9 @@
-
 /**
  * A wrapper around the ArrayBuffer and DataView. Simplifies reading binary data.
  *
  * @public
  */
 export class BinaryReader {
-
   /**
    * The underlying data to read
    */
@@ -67,7 +65,7 @@ export class BinaryReader {
     return new Int8Array(this.slice(length))
   }
 
-  public readBuffer(buffer: number[]|Uint8Array, index: number, length: number) {
+  public readBuffer(buffer: number[] | Uint8Array, index: number, length: number) {
     let end = index + length
     while (index < end) {
       buffer[index++] = this.view.getUint8(this.position++)
@@ -179,6 +177,23 @@ export class BinaryReader {
     while (length > 0) {
       result.push(String.fromCharCode(this.view.getUint8(this.position++)))
       length--
+    }
+    return result.join('')
+  }
+
+  /**
+   * Reads a string
+   *
+   * @param length - The length in bytes to read
+   */
+  public readStringNT(): string {
+    let result = []
+    while (this.canRead) {
+      const byte = this.view.getUint8(this.position++)
+      if (byte === 0) {
+        break
+      }
+      result.push(String.fromCharCode(byte))
     }
     return result.join('')
   }

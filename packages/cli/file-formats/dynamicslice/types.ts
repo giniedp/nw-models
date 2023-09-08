@@ -65,7 +65,78 @@ export function isLightComponent(obj: any): obj is LightComponent {
 }
 export interface LightComponent {
   __type: 'LightComponent'
-  lightconfiguration: any
+  lightconfiguration: LightConfiguration
+}
+
+export function isLightConfiguration(obj: any): obj is LightConfiguration {
+  return obj?.__type === 'LightConfiguration'
+}
+export interface LightConfiguration {
+  __type: 'LightConfiguration'
+  lighttype: number
+  visible: boolean
+  oninitially: boolean
+  color: Color
+  diffusemultiplier: number
+  specmultiplier: number
+  ambient: boolean
+  pointmaxdistance: number
+  pointattenuationbulbsize: number
+  areawidth: number
+  areaheight: number
+  areamaxdistance: number
+  areafov: number
+  projectordistance: number
+  projectorattenuationbulbsize: number
+  projectorfov: number
+  projectornearplane: number
+  projectortexture: any
+  // {
+  //   __type: 'AzFramework::SimpleAssetReference<LmbrCentral::TextureAsset>'
+  //   baseclass1: { __type: 'SimpleAssetReferenceBase'; assetpath: '' }
+  // }
+  // projectormaterial: {
+  //   __type: 'AzFramework::SimpleAssetReference<LmbrCentral::MaterialAsset>'
+  //   baseclass1: { __type: 'SimpleAssetReferenceBase'; assetpath: '' }
+  // }
+  'area x,y,z': [number, number, number]
+  sortpriority: number
+  cubemapresolution: number
+  cubemaptexture: string
+  boxproject: boolean
+  boxheight: number
+  boxlength: number
+  boxwidth: number
+  attenuationfalloffmax: number
+  todinfluence: number
+  viewdistancemultiplier: number
+  minimumspec: number
+  castshadowsspec: number
+  ignorevisareas: boolean
+  indooronly: boolean
+  affectsthisareaonly: boolean
+  volumetricfogonly: boolean
+  volumetricfog: boolean
+  deferred: boolean
+  terrainshadows: boolean
+  shadowbias: number
+  shadowresscale: number
+  shadowslopebias: number
+  shadowupdateminradius: number
+  shadowupdateratio: number
+  shadowmaxcameradistance: number
+  animindex: number
+  animspeed: number
+  animphaserandom: boolean
+  animphase: number
+}
+
+export function isColor(obj: any): obj is Color {
+  return obj?.__type === 'Color'
+}
+export interface Color {
+  __type: 'Color'
+  __value: [number, number, number, number]
 }
 
 export function isMeshComponent(obj: any): obj is MeshComponent {

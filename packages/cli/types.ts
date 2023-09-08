@@ -10,6 +10,7 @@ export interface ModelMeshAsset {
   material: string
   hash?: string
   transform?: number[]
+  lights?: unknown[]
 }
 
 export interface ModelAsset {

@@ -39,53 +39,102 @@ export interface DyeChannel {
   enabled: boolean
 }
 
+function disposer() {
+  let list: Unsubscriber[] = []
+  return {
+    dispose: () => {
+      const toDispose = list
+      list = []
+      for (const it of toDispose) {
+        it()
+      }
+    },
+    add: (fn: () => Unsubscriber) => {
+      list.push(fn())
+    },
+  }
+}
+
 export type Viewer = ReturnType<typeof initViewer>
 export function initViewer({ el, modelUrl, dyeR, dyeG, dyeB, dyeA, debugMask, appearance }: BabylonViewerOptions) {
   const viewer = new DefaultViewer(el, {
-    model: {
-      rotationOffsetAngle: 0,
-      url: new URL(modelUrl, location.origin).toString(),
-    },
     templates: {
-      navBar: {
-        html: '<div></div>',
-      },
+      navBar: null,
     } as any,
+    // scene: {
+    //   clearColor: {
+    //     r: 0,
+    //     g: 0,
+    //     b: 0,
+    //     a: 0,
+    //   },
+    // },
   })
-  let unsub: Unsubscriber | null
 
+  async function showModel(modelUrl: string) {
+    await viewer.hideOverlayScreen().catch(console.warn)
+    return viewer
+      .loadModel({
+        url: modelUrl,
+        rotationOffsetAngle: 0,
+      })
+      .catch((err) => {
+        console.error(err)
+        return null
+      })
+      .then(() => {
+        // viewer.sceneManager.scene.debugLayer.show()
+        // const skyMat = viewer.sceneManager.environmentHelper?.skyboxMaterial
+        // const groundMat = viewer.sceneManager.environmentHelper?.groundMaterial
+        // if (groundMat) {
+        //   groundMat.primaryColor = new BABYLON.Color3(1, 0, 0)
+        //   groundMat.primaryColorHighlightLevel = 0.1
+        // }
+        // if (skyMat) {
+        //   skyMat.primaryColor = new BABYLON.Color3(1, 1, 1)
+        //   skyMat.primaryColorHighlightLevel = 0
+        // }
+        // viewer.sceneManager.scene.lights.forEach((it) => {
+        //   it.setEnabled(false)
+        // })
+      })
+  }
+
+  const disposables = disposer()
+
+  viewer.onEngineInitObservable.add((engine) => {
+    console.log(viewer)
+    showModel(modelUrl)
+  })
   viewer.onModelLoadedObservable.add((model) => {
-    unsub?.()
-    unsub = null
+    disposables.dispose()
+    disposables.add(() => {
+      const foundAppearance = model.meshes
+        .map((mesh) => DyeLoaderExtension.getAppearance(mesh.material))
+        .find((it) => !!it)
+      appearance.set(foundAppearance)
 
-    const foundAppearance = model.meshes
-      .map((mesh) => DyeLoaderExtension.getAppearance(mesh.material))
-      .find((it) => !!it)
-    appearance.set(foundAppearance)
-
-    unsub = derived([appearance, dyeR, dyeG, dyeB, dyeA, debugMask], (it) => it).subscribe(
-      ([data, r, g, b, a, debug]) => {
-        updateDyeChannel({
-          model,
-          appearance: data!,
-          dyeR: r?.Color || null,
-          dyeG: g?.Color || null,
-          dyeB: b?.Color || null,
-          dyeA: a?.Color || null,
-          debugMask: !!debug,
-        })
-      },
-    )
-    viewer.sceneManager.scene.debugLayer.show()
+      return derived([appearance, dyeR, dyeG, dyeB, dyeA, debugMask], (it) => it).subscribe(
+        ([data, r, g, b, a, debug]) => {
+          updateDyeChannel({
+            model,
+            appearance: data!,
+            dyeR: r?.Color || null,
+            dyeG: g?.Color || null,
+            dyeB: b?.Color || null,
+            dyeA: a?.Color || null,
+            debugMask: !!debug,
+          })
+        },
+      )
+    })
   })
 
   return {
-    showModel: (modelUrl: string) => {
-      viewer.loadModel(modelUrl).catch(console.error)
-    },
+    showModel: showModel,
     dispose: () => {
       viewer.dispose()
-      unsub?.()
+      disposables.dispose()
     },
   }
 }

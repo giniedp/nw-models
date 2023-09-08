@@ -18,6 +18,7 @@ import { removeVertexColor } from './transform/remove-vertex-color'
 import { uniqTextures } from './transform/uniq-textures'
 import { transformRoot } from './transform/transform-root'
 import { removeLod } from './transform/remove-lod'
+import { addMissingMaterial } from './transform/add-missing-material'
 //import { toktx } from './transform/toktx';
 
 export async function transformGltf({
@@ -159,12 +160,14 @@ async function transformFile({
       overwrite: true,
     }),
     transformRoot({ matrix: matrix as mat4 }),
+    removeLod(),
+    prune({}),
     nwAppearance({
       appearance,
       materials: material,
       bake: true,
     }),
-    removeLod(),
+    addMissingMaterial(),
     prune({}),
   ]
 

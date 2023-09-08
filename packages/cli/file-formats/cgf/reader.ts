@@ -1,5 +1,4 @@
 import * as fs from 'fs'
-import * as path from 'path'
 import { logger } from '../../utils'
 
 import { BinaryReader } from './binary-reader'
@@ -34,27 +33,48 @@ export async function getMaterialNameForSkin(skinFile: string) {
   const reader = new BinaryReader(buffer.buffer)
   const header = readHeader(reader)
   const table = readChunkTable(reader, header)
-  const mtl = table.find((it) => it.type === ChunkType.MtlName)
+  const mtlNameChunks = table.filter((it) => it.type === ChunkType.MtlName)
+  const mtl = mtlNameChunks[0]
   if (!mtl) {
     return null
   }
   reader.seekAbsolute(mtl.offset)
-  return reader.readString(mtl.size).replace(/\x00+$/, '')
-}
 
-export async function getMaterialFileForSkin(assetsDir: string, skinFile: string) {
-  const mtlName = await getMaterialNameForSkin(path.join(assetsDir, skinFile))
-  if (!mtlName) {
-    return null
+  let assetId: string = null
+  let file: string = null
+  let name: string = null
+  if (reader.readString(1) !== '{') {
+    reader.seekAbsolute(mtl.offset)
+    file = reader.readStringNT()
+    return {
+      assetId: assetId,
+      file: file,
+      name: name,
+    }
   }
 
-  const mtlFile = path.join(path.dirname(skinFile), mtlName + '.mtl')
-  const absFile = path.join(assetsDir, mtlFile)
-  if (fs.existsSync(absFile)) {
-    return mtlFile
+  reader.seekRelative(36)
+  if (reader.readString(1) !== '}') {
+    return {
+      assetId: assetId,
+      file: file,
+      name: name,
+    }
   }
-  logger.warn('missing', absFile, `(${skinFile})`)
-  return null
+
+  reader.seekAbsolute(mtl.offset + 1)
+  assetId = reader.readString(36)
+  reader.seekRelative(1)
+  reader.seekRelative(26)
+  const count = reader.readByte()
+  reader.seekRelative(3)
+  reader.seekRelative(4 * count)
+  name = reader.readStringNT()
+  return {
+    assetId: assetId,
+    file: file,
+    name: name,
+  }
 }
 
 function readHeader(reader: BinaryReader): FileHeader {

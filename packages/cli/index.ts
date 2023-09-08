@@ -164,6 +164,7 @@ program
     const update: boolean = opts.update
 
     logger.info('Resolving available assets')
+    logger.verbose(verbose)
     const tables = await readTables({ tablesDir: tablesDir }).then((data) => {
       if (itemIds.length) {
         data.items = data.items.filter(matchesAnyInList('ItemID', itemIds))
@@ -240,6 +241,7 @@ program
       assets: assets,
     })
 
+    logger.verbose(true)
     logger.info(
       [
         '',
@@ -250,8 +252,6 @@ program
         ``,
       ].join('\n'),
     )
-
-    logger.verbose(true)
     logger.info('Step 1/4: Convert and copy textures')
     logger.verbose(verbose)
 
@@ -346,29 +346,10 @@ program
     })
   })
 
-program.command('inspect').action(async () => {
-  const files = await glob(path.join(UNPACK_DIR, '**/*.mtl'))
-  const samples: string[] = []
-  for (const file of files) {
-    const mtl = parseMtlFile(fs.readFileSync(file, { encoding: 'utf-8' }))
-    samples.push(JSON.stringify(mtl))
-  }
-  const result = await tsFromJson('Material', samples)
-  const code = result.lines.join('\n')
-  fs.writeFileSync(path.join(process.cwd(), 'tmp/material.ts'), code, { encoding: 'utf-8' })
-  // const params = new Set<string>()
-  // let min = Number.MAX_VALUE
-  // let max = Number.MIN_VALUE
-  // for (const file of files) {
-  //   const materials = await readMtlFile(file)
-  //   for (const mtl of materials) {
-  //     if (mtl.attrs.Shininess) {
-  //       min = Math.min(min, Number(mtl.attrs.Shininess))
-  //       max = Math.max(max, Number(mtl.attrs.Shininess))
-  //     }
-  //   }
-  // }
-  // console.log('Shininess', min, max)
+program.command('scratch').action(async () => {
+  const files = await glob(path.join(UNPACK_DIR, '**', `pirate_chest*.mtl`))
+
+  console.log(files)
 })
 
 program.parse(process.argv)
