@@ -26,6 +26,13 @@
       enableCellTextSelection: true,
       rowSelection: 'single',
       onGridReady: onGridReady,
+      onModelUpdated: ({ api }) => {
+        api.forEachNode((node) => {
+          if (!node.rowIndex) {
+            node.setSelected(true)
+          }
+        })
+      },
       onSelectionChanged: ({ api }) => {
         const data = api.getSelectedRows()[0]
         if (data) {
