@@ -6,6 +6,7 @@ import { cgfConverter } from '../tools/cgf-converter'
 import { colladaToGltf } from '../tools/collada-to-gltf'
 import type { ModelAsset, ModelMeshAsset, TransformContext } from '../types'
 import { appendToFilename, copyFile, logger, mkdir, replaceExtname, transformTextFile, wrapError } from '../utils'
+import { gameFileSystem } from '../file-formats/game-fs'
 
 export async function copyMaterial({
   material,
@@ -194,6 +195,7 @@ async function getMaterial(targetRoot: string, filePath: string): Promise<MtlObj
   if (!filePath) {
     return null
   }
+  const gfs = gameFileSystem(targetRoot)
   const result = await loadMtlFile(filePath)
   return result.map((mtl) => {
     mtl.Textures
@@ -201,9 +203,11 @@ async function getMaterial(targetRoot: string, filePath: string): Promise<MtlObj
       ...mtl,
       Textures: {
         Texture: getMaterialTextures(mtl).map((tex) => {
+          const file = replaceExtname(tex.File, '.png')
+          const resolved = gfs.resolveTexturePath(file) || file
           return {
             ...tex,
-            File: path.join(targetRoot, replaceExtname(tex.File, '.png')),
+            File: gfs.absolute(resolved),
           }
         }),
       },

@@ -8,9 +8,10 @@ import { readMtlFile } from './mtl'
 
 export type GameFileSystem = ReturnType<typeof gameFileSystem>
 export function gameFileSystem(rootDir: string) {
-  const pathTo = (...paths: string[]) => path.join(rootDir, ...paths)
+  const pathTo = (...paths: string[]) => path.resolve(path.join(rootDir, ...paths))
 
   const gfs = {
+    rootDir: rootDir,
     absolute: pathTo,
     extname: path.extname,
     dirname: path.dirname,
@@ -25,6 +26,7 @@ export function gameFileSystem(rootDir: string) {
     readCgf: (file: string) => readCgf(pathTo(file)),
     readCdf: (file: string) => readCdf(pathTo(file)),
     readMtl: (file: string) => readMtlFile(pathTo(file)),
+    resolveTexturePath: (file: string) => resolveTexturePath(gfs, file),
     resolveModelPath: (file: string) => resolveModelPath(gfs, file),
     resolveMaterialPath: (file: string | string[]) => resolveMaterialPath(gfs, file),
     resolveMaterialForModel: (file: string) => resolveMaterialForModel(gfs, file),
@@ -33,6 +35,28 @@ export function gameFileSystem(rootDir: string) {
     },
   }
   return gfs
+}
+
+export function resolveTexturePath(gfs: GameFileSystem, file: string) {
+  if (!file) {
+    return null
+  }
+  if (gfs.existsSync(file)) {
+    return file
+  }
+
+  const candidates = [
+    file,
+    path.join(path.dirname(file), '..', 'textures', path.basename(file)),
+    path.join(path.dirname(file), 'textures', path.basename(file)),
+    path.join(path.dirname(file), path.basename(file).replace('horsemount_pattern', 'mount_horse_pattern')),
+  ]
+  for (const candidate of candidates) {
+    if (gfs.existsSync(candidate)) {
+      return candidate
+    }
+  }
+  return null
 }
 
 export function resolveModelPath(gfs: GameFileSystem, file: string) {

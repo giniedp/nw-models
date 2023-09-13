@@ -1,7 +1,8 @@
 import * as path from 'path'
-import * as fs from 'fs'
+import { copyDdsFile, ddsToPng } from '../file-formats/dds/converter'
+import { gameFileSystem } from '../file-formats/game-fs'
 import { TransformContext } from '../types'
-import { copyDdsFile, ddsToPng } from "../file-formats/dds/converter"
+import { logger } from '../utils/logger'
 
 export type ProcessTextureOptions = Pick<TransformContext, 'sourceRoot' | 'targetRoot' | 'update'> & {
   texture: string
@@ -9,12 +10,21 @@ export type ProcessTextureOptions = Pick<TransformContext, 'sourceRoot' | 'targe
 }
 
 export async function processTexture({ sourceRoot, targetRoot, texture, texSize, update }: ProcessTextureOptions) {
-  if (fs.existsSync(path.join(targetRoot, texture)) && !update) {
+  const source = gameFileSystem(sourceRoot)
+  const target = gameFileSystem(targetRoot)
+
+  const file = source.resolveTexturePath(texture)
+  if (!file) {
+    logger.warn(`texture not found`, texture)
+    return
+  }
+
+  if (target.existsSync(target.absolute(file)) && !update) {
     return
   }
   const files = await copyDdsFile({
-    input: path.join(sourceRoot, texture),
-    output: path.join(targetRoot, texture),
+    input: source.absolute(file),
+    output: target.absolute(file),
   })
 
   for (const file of files) {
@@ -23,7 +33,7 @@ export async function processTexture({ sourceRoot, targetRoot, texture, texSize,
       ddsFile: file,
       outDir: path.dirname(file),
       isNormal: basename.endsWith('_ddna') || basename.endsWith('_ddn'), // !!! does not include the _ddna.a.dds files !!!
-      size: texSize
+      size: texSize,
     })
   }
 }
