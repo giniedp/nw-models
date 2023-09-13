@@ -188,6 +188,8 @@ program
       if (ids.length) {
         data = {
           ...data,
+          mounts: data.mounts.filter(matchesAnyInList('MountId', ids)),
+          costumeChanges: data.costumeChanges.filter(matchesAnyInList('CostumeChangeId', ids)),
           housingItems: data.housingItems.filter(matchesAnyInList('HouseItemID', ids)),
           itemAppearances: data.itemAppearances.filter(matchesAnyInList('ItemID', ids)),
           weaponAppearances: data.weaponAppearances.filter(matchesAnyInList('WeaponAppearanceID', ids)),

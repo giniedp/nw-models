@@ -304,6 +304,17 @@ export interface WeaponAppearanceDefinition extends AppearanceMaskDefinition {
   ADyeSlotDisabled?: string
 }
 
+export interface CostumeChanges {
+  CostumeChangeId: string
+  CostumeChangeMesh: string
+}
+
+export interface Mounts extends AppearanceMaskDefinition {
+  MountId: string
+  Mesh: string
+  Material: string
+}
+
 export interface ItemAppearanceDefinition extends AppearanceMaskDefinition {
   ItemID: string
   HairChop: string
@@ -360,10 +371,12 @@ export interface InstrumentAppearance extends AppearanceMaskDefinition {
 }
 
 export type Appearance = AppearanceMaskDefinition &
-  (WeaponAppearanceDefinition | ItemAppearanceDefinition | InstrumentAppearance)
+  (WeaponAppearanceDefinition | ItemAppearanceDefinition | InstrumentAppearance | Mounts)
 
 export function getAppearanceId(appearance: Appearance | AppearanceMaskDefinition) {
   return (
-    (appearance as ItemAppearanceDefinition).ItemID || (appearance as WeaponAppearanceDefinition).WeaponAppearanceID
+    (appearance as ItemAppearanceDefinition).ItemID ||
+    (appearance as WeaponAppearanceDefinition).WeaponAppearanceID ||
+    (appearance as Mounts).MountId
   )
 }

@@ -1,11 +1,13 @@
 import path from 'path'
 import { glob, readJsonFile } from '../utils/file-utils'
 import {
+  CostumeChanges,
   Housingitems,
   InstrumentAppearance,
   ItemAppearanceDefinition,
   ItemDefinitionMaster,
   ItemdefinitionsWeapons,
+  Mounts,
   WeaponAppearanceDefinition,
 } from '../types'
 
@@ -32,7 +34,13 @@ export async function readTables({ tablesDir }: { tablesDir: string }) {
   const weapons = await readJsonFile<ItemdefinitionsWeapons[]>(
     path.join(tablesDir, 'javelindata_itemdefinitions_weapons.json'),
   )
+  const mounts = await readJsonFile<Mounts[]>(path.join(tablesDir, 'mounts', 'javelindata_mounts.json'))
+  const costumeChanges = await readJsonFile<CostumeChanges[]>(
+    path.join(tablesDir, 'costumechanges', 'javelindata_costumechanges.json'),
+  )
   return {
+    mounts,
+    costumeChanges,
     items,
     housingItems,
     itemAppearances,

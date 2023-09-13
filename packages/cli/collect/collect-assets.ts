@@ -1,8 +1,10 @@
 import {
+  CostumeChanges,
   Housingitems,
   InstrumentAppearance,
   ItemAppearanceDefinition,
   ItemdefinitionsWeapons,
+  Mounts,
   WeaponAppearanceDefinition,
 } from '../types'
 import { assetCollector } from './asset-collector'
@@ -12,8 +14,12 @@ import { collectItemAppearances } from './collect-item-appearances'
 import { collectWeaponAppearances } from './collect-weapon-appearances'
 import { collectWeapons } from './collect-weapons'
 import { collectSlices } from './collect-slices'
+import { collectMounts } from './collect-mounts'
+import { collectCostumeChanges } from './collect-costumechanges'
 
 export async function collectAssets({
+  mounts,
+  costumeChanges,
   housingItems,
   itemAppearances,
   weaponAppearances,
@@ -24,6 +30,8 @@ export async function collectAssets({
   extname,
   slices,
 }: {
+  mounts: Mounts[]
+  costumeChanges: CostumeChanges[]
   housingItems: Housingitems[]
   itemAppearances: ItemAppearanceDefinition[]
   weaponAppearances: WeaponAppearanceDefinition[]
@@ -38,6 +46,8 @@ export async function collectAssets({
     sourceRoot: sourceRoot,
     extname: extname || '.gltf',
   })
+  await collectMounts(mounts, result)
+  await collectCostumeChanges(costumeChanges, result)
   await collectItemAppearances(itemAppearances, result)
   await collectWeaponAppearances(weaponAppearances, result)
   await collectInstrumentAppearances(instrumentAppearances, result)
