@@ -3,7 +3,7 @@ import path from 'path'
 import { glob, readJsonFile, replaceExtname } from '../utils/file-utils'
 import { logger } from '../utils/logger'
 import { readCdf } from './cdf'
-import { getMaterialNameForSkin, readCgf } from './cgf'
+import { getMaterialNameForSkin, getSkinFromCloth, readCgf } from './cgf'
 import { readMtlFile } from './mtl'
 
 export type GameFileSystem = ReturnType<typeof gameFileSystem>
@@ -72,14 +72,11 @@ export function resolveModelPath(gfs: GameFileSystem, file: string) {
     return file
   }
   if (extname === '.cloth') {
-    for (const ext of ['.skin', '.cgf']) {
-      const candidate = replaceExtname(file, ext)
-      if (gfs.existsSync(candidate)) {
-        logger.debug(`fix model path ${extname} -> ${ext} : ${candidate}`)
-        return candidate
-      }
+    const skin = getSkinFromCloth(gfs.absolute(file))
+    if (skin) {
+      return skin
     }
-    logger.warn(`not a model file ${file}`)
+    logger.warn('no skin found in', file)
     return null
   }
 

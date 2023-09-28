@@ -155,3 +155,15 @@ function readChunkHeader(reader: BinaryReader, header: FileHeader): ChunkHeader 
   }
   throw new Error('file not supported')
 }
+
+export function getSkinFromCloth(file: string, attachReader = false): string {
+  if (!fs.existsSync(file)) {
+    return null
+  }
+  const data = fs.readFileSync(file, 'utf-8')
+  const match = data.match(/objects[\/\\].*\.(skin|cgf)/gi)
+  if (match) {
+    return match[0]
+  }
+  return null
+}
