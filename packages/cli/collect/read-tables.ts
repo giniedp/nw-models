@@ -25,9 +25,14 @@ export async function readTables({ tablesDir }: { tablesDir: string }) {
   const itemAppearances = await readJsonFile<ItemAppearanceDefinition[]>(
     path.join(tablesDir, 'javelindata_itemappearancedefinitions.json'),
   )
-  const weaponAppearances = await readJsonFile<WeaponAppearanceDefinition[]>(
-    path.join(tablesDir, 'javelindata_itemdefinitions_weaponappearances.json'),
-  )
+  const weaponAppearances = [
+    ...(await readJsonFile<WeaponAppearanceDefinition[]>(
+      path.join(tablesDir, 'javelindata_itemdefinitions_weaponappearances.json'),
+    )),
+    ...(await readJsonFile<WeaponAppearanceDefinition[]>(
+      path.join(tablesDir, 'javelindata_itemdefinitions_weaponappearances_mountattachments.json'),
+    )),
+  ]
   const instrumentAppearances = await readJsonFile<InstrumentAppearance[]>(
     path.join(tablesDir, 'javelindata_itemdefinitions_instrumentsappearances.json'),
   )
