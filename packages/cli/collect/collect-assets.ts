@@ -16,6 +16,7 @@ import { collectWeapons } from './collect-weapons'
 import { collectSlices } from './collect-slices'
 import { collectMounts } from './collect-mounts'
 import { collectCostumeChanges } from './collect-costumechanges'
+import { collectCDF } from './collect-cdf'
 
 export async function collectAssets({
   mounts,
@@ -29,6 +30,7 @@ export async function collectAssets({
   slicesRoot,
   extname,
   slices,
+  models
 }: {
   mounts: Mounts[]
   costumeChanges: CostumeChanges[]
@@ -41,6 +43,7 @@ export async function collectAssets({
   slicesRoot: string
   extname?: string
   slices?: string[]
+  models?: string[]
 }) {
   const result = assetCollector({
     sourceRoot: sourceRoot,
@@ -54,5 +57,6 @@ export async function collectAssets({
   await collectHousingItems(slicesRoot, housingItems, result)
   await collectWeapons(weapons, result)
   await collectSlices(slicesRoot, slices, result)
+  await collectCDF(models, result)
   return Array.from(result.values())
 }

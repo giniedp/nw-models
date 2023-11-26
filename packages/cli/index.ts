@@ -118,6 +118,7 @@ program
   .option('-ts, --texture-size <textureSize>', 'Resize all textures to given size.', '1024')
   .option('--verbose', 'Enables log output (automatically enabled if threads is 0)')
   .option('-slice, --slice <sliceFile>', 'Forcefully convert a single slice file')
+  .option('-cdf, --cdf <cdfFile>', 'Forcefully convert a single .cdf file')
   .action(async (opts) => {
     logger.verbose(true)
     logger.debug('convert', opts)
@@ -149,6 +150,10 @@ program
       .split(',')
       .filter((it) => !!it)
     const slices: string[] = String(opts.slice || '')
+      .toLowerCase()
+      .split(',')
+      .filter((it) => !!it)
+    const modelFiles: string[] = String(opts.cdf || '')
       .toLowerCase()
       .split(',')
       .filter((it) => !!it)
@@ -210,7 +215,7 @@ program
         data.housingItems = []
       }
 
-      if (slices.length) {
+      if (slices.length || modelFiles.length) {
         Object.keys(data).forEach((key: keyof typeof data) => {
           data[key] = []
         })
@@ -224,6 +229,7 @@ program
       slicesRoot: slicesDir,
       extname: binary ? '.glb' : '.gltf',
       slices: slices,
+      models: modelFiles
     }).then((list) => {
       list = filterAssetsBySkinName(skinFiles, list)
       list = filterAssetsModelMaterialHash(hashes, list)
