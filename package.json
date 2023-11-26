@@ -102,5 +102,6 @@
     "webpack-node-externals": "^3.0.0",
     "workerpool": "^6.4.0",
     "zod": "^3.22.2"
-  }
+  },
+  "packageManager": "yarn@1.22.19"
 }
