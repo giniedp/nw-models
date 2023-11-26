@@ -25,15 +25,17 @@ export async function getModelsFromSlice(obj: Object) {
     for (const component of entity.components || []) {
       if (isGameTransformComponent(component)) {
         const world = component.m_worldtm.__value
-        const [r0, r1, r2, r3, r4, r5, r6, r7, r8] = world['rotation/scale']
-        const [x, y, z] = world.translation
-        // prettier-ignore
-        transform = [
-          r0, r1, r2, 0,
-          r3, r4, r5, 0,
-          r6, r7, r8, 0,
-          x, y, z, 1
-        ]
+        if (world['rotation/scale']?.length) {
+          const [r0, r1, r2, r3, r4, r5, r6, r7, r8] = world['rotation/scale']
+          const [x, y, z] = world.translation
+          // prettier-ignore
+          transform = [
+            r0, r1, r2, 0,
+            r3, r4, r5, 0,
+            r6, r7, r8, 0,
+            x, y, z, 1
+          ]
+        }
         continue
       }
       if (isMeshComponent(component)) {
