@@ -8,6 +8,7 @@ import {
   ItemDefinitionMaster,
   ItemdefinitionsWeapons,
   Mounts,
+  Npc,
   WeaponAppearanceDefinition,
 } from '../types'
 
@@ -43,6 +44,14 @@ export async function readTables({ tablesDir }: { tablesDir: string }) {
   const costumeChanges = await readJsonFile<CostumeChanges[]>(
     path.join(tablesDir, 'costumechanges', 'javelindata_costumechanges.json'),
   )
+  const npcs = [
+    ...(await readJsonFile<Npc[]>(
+      path.join(tablesDir, 'javelindata_variations_npcs.json'),
+    )),
+    ...(await readJsonFile<Npc[]>(
+      path.join(tablesDir, 'javelindata_variations_npcs_walkaway.json'),
+    ))
+  ]
   return {
     mounts,
     costumeChanges,
@@ -52,5 +61,6 @@ export async function readTables({ tablesDir }: { tablesDir: string }) {
     weaponAppearances,
     instrumentAppearances,
     weapons,
+    npcs
   }
 }

@@ -309,6 +309,12 @@ export interface CostumeChanges {
   CostumeChangeMesh: string
 }
 
+export interface Npc {
+  NPCId: string
+  VariantID: string
+  CharacterDefinition: string
+}
+
 export interface Mounts extends AppearanceMaskDefinition {
   MountId: string
   Mesh: string

@@ -5,6 +5,7 @@ import {
   ItemAppearanceDefinition,
   ItemdefinitionsWeapons,
   Mounts,
+  Npc,
   WeaponAppearanceDefinition,
 } from '../types'
 import { assetCollector } from './asset-collector'
@@ -17,6 +18,7 @@ import { collectSlices } from './collect-slices'
 import { collectMounts } from './collect-mounts'
 import { collectCostumeChanges } from './collect-costumechanges'
 import { collectCDF } from './collect-cdf'
+import { collectNpcs } from './collect-npcs'
 
 export async function collectAssets({
   mounts,
@@ -25,6 +27,7 @@ export async function collectAssets({
   itemAppearances,
   weaponAppearances,
   instrumentAppearances,
+  npcs,
   weapons,
   sourceRoot,
   slicesRoot,
@@ -39,6 +42,7 @@ export async function collectAssets({
   weaponAppearances: WeaponAppearanceDefinition[]
   instrumentAppearances: InstrumentAppearance[]
   weapons: ItemdefinitionsWeapons[]
+  npcs: Npc[]
   sourceRoot: string
   slicesRoot: string
   extname?: string
@@ -58,5 +62,6 @@ export async function collectAssets({
   await collectWeapons(weapons, result)
   await collectSlices(slicesRoot, slices, result)
   await collectCDF(models, result)
+  await collectNpcs(npcs, result)
   return Array.from(result.values())
 }
