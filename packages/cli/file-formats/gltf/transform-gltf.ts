@@ -5,25 +5,28 @@ import { draco, prune, textureCompress, unpartition } from '@gltf-transform/func
 import draco3d from 'draco3dgltf'
 import * as path from 'path'
 import sharp from 'sharp'
+import { attachAnimations } from '../../file-formats/cgf/converter/convert-animations'
 import { Appearance } from '../../types'
 import { writeFile, writeFileBinary } from '../../utils/file-utils'
 import { logger } from '../../utils/logger'
 import { MtlObject } from '../mtl'
 import { nwAppearance } from './extensions/nw-appearance'
 import { NwAppearanceExtension } from './extensions/nw-appearance-extension'
+import { addMissingMaterial } from './transform/add-missing-material'
 import { computeNormals } from './transform/compute-normals'
 import { mergeScenes } from './transform/merge-scenes'
+import { removeLod } from './transform/remove-lod'
 import { removeSkinning } from './transform/remove-skinning'
 import { removeVertexColor } from './transform/remove-vertex-color'
-import { uniqTextures } from './transform/uniq-textures'
 import { transformRoot } from './transform/transform-root'
-import { removeLod } from './transform/remove-lod'
-import { addMissingMaterial } from './transform/add-missing-material'
+import { uniqTextures } from './transform/uniq-textures'
+import { appendCAF, appendCGF } from 'file-formats/cgf/converter/gltf'
 //import { toktx } from './transform/toktx';
 
 export async function transformGltf({
   meshes,
   appearance,
+  animations,
   output,
   withDraco,
   withWebp,
@@ -34,6 +37,7 @@ export async function transformGltf({
     material: MtlObject[]
     transform?: number[]
   }>
+  animations?: string[]
   appearance: Appearance
   output: string
   withDraco?: boolean
@@ -45,32 +49,47 @@ export async function transformGltf({
     'draco3d.encoder': await draco3d.createEncoderModule(), // Optional.
   })
 
-  let document: Document
-  for (const mesh of meshes) {
-    const doc = await transformFile({
-      input: mesh.model,
-      material: mesh.material,
-      appearance: appearance,
-      matrix: mesh.transform,
-    }).catch((err) => {
-      logger.warn(`mesh ignored: `, err)
-      return null
-    })
-    if (!doc) {
-      continue
-    }
-    if (!document) {
-      document = doc
-    } else {
-      document.merge(doc)
-    }
-  }
+  const doc = new Document()
+  doc.createBuffer('buffer')
 
-  if (!document) {
-    throw new Error('no sub models found')
-  }
+  const scene = doc.createScene()
+  doc.getRoot().setDefaultScene(scene)
+
+  // let document: Document
+  // for (const mesh of meshes) {
+  //   const doc = await transformFile({
+  //     input: mesh.model,
+  //     material: mesh.material,
+  //     appearance: appearance,
+  //     matrix: mesh.transform,
+  //     hasAnimations: !!animations?.length,
+  //   }).catch((err): Document => {
+  //     logger.warn(`mesh ignored: `, err)
+  //     return null
+  //   })
+  //   if (!doc) {
+  //     continue
+  //   }
+  //   document = mergeDocuments(document, doc)
+  // }
+
+  // if (!document) {
+  //   throw new Error('no sub models found')
+  // }
 
   const transforms: Transform[] = []
+
+  meshes.forEach((mesh, i) => {
+    transforms.push(appendCGF({
+      file: mesh.model,
+      material: mesh.material,
+      ignoreBones: i > 0
+    }))
+  })
+
+  if (animations?.length) {
+    transforms.push(appendCAF({ animations }))
+  }
   if (meshes.length > 1) {
     transforms.push(mergeScenes())
   }
@@ -99,12 +118,12 @@ export async function transformGltf({
     // );
   }
 
-  await document.transform(...transforms)
+  await doc.transform(...transforms)
 
   if (path.extname(output) === '.glb') {
-    await writeGlb(io, output, document)
+    await writeGlb(io, output, doc)
   } else {
-    await writeGltf(io, output, document)
+    await writeGltf(io, output, doc)
   }
 }
 
@@ -137,11 +156,13 @@ async function transformFile({
   material,
   matrix,
   appearance,
+  hasAnimations,
 }: {
   input: string
   material: MtlObject[]
   matrix?: number[]
   appearance: Appearance
+  hasAnimations: boolean
 }) {
   const io = new NodeIO().registerExtensions([...ALL_EXTENSIONS, NwAppearanceExtension])
   const jsonDocument = await io.readAsJSON(input)
@@ -149,7 +170,7 @@ async function transformFile({
   document.setLogger(logger)
 
   const transform: Transform[] = [
-    removeSkinning(),
+    hasAnimations ? null : removeSkinning(),
     // vertex color channels are somtetimes white but sometimes black
     // default shader implementation multiplies vertex color with base color
     // which then sometimes results in black color, thus removing vertex channel here
@@ -169,9 +190,52 @@ async function transformFile({
     }),
     addMissingMaterial(),
     prune({}),
-  ]
+  ].filter((it) => !!it)
 
   await document.transform(...transform)
 
   return document
+}
+
+function mergeDocuments(target: Document, other: Document) {
+  if (!target) {
+    return other
+  }
+
+  const targetHasSkin = target.getRoot().listSkins().length > 0
+  const otherHasSkin = other.getRoot().listSkins().length > 0
+  const result = target.merge(other)
+  // const defaultScene = result.getRoot().getDefaultScene()
+  // for (const scene of result.getRoot().listScenes()) {
+  //   if (scene === defaultScene) {
+  //     continue
+  //   }
+  //   for (const child of scene.listChildren()) {
+  //     child.detach()
+  //     defaultScene.addChild(child)
+  //   }
+  //   scene.detach()
+  // }
+
+  // if (targetHasSkin && otherHasSkin) {
+  //   const mainSkin = result.getRoot().listSkins()[0]
+  //   for (const node of result.getRoot().listNodes()) {
+  //     if (node.getSkin() && node.getSkin() !== mainSkin) {
+  //       node.setSkin(mainSkin)
+  //     }
+  //   }
+  //   for (const skin of result.getRoot().listSkins()) {
+  //     if (skin === mainSkin) {
+  //       continue
+  //     }
+  //     for (const joint of skin.listJoints()) {
+  //       skin.removeJoint(joint)
+  //       joint.detach()
+  //     }
+  //     skin.detach()
+  //   }
+  // }
+
+  // console.log('SKINS', result.getRoot().listSkins().length)
+  return result
 }

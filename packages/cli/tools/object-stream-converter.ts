@@ -1,5 +1,6 @@
-import { logger, spawn } from "../utils"
-import { resolveTool } from "./resolve-tool"
+import { StdioOptions } from 'child_process'
+import { logger, spawn } from '../utils'
+import { resolveTool } from './resolve-tool'
 
 export interface ObjectStreamConverterArgs {
   exe?: string
@@ -7,9 +8,9 @@ export interface ObjectStreamConverterArgs {
   output: string
   threads?: number
   pretty?: boolean
+  stdio?: StdioOptions
 }
-export async function objectStreamConverter({ exe, input, output, threads, pretty }: ObjectStreamConverterArgs) {
-  // https://github.com/new-world-tools/new-world-tools
+export async function objectStreamConverter({ exe, input, output, threads, pretty, stdio }: ObjectStreamConverterArgs) {
   const tool = exe || resolveTool('object-stream-converter.exe')
   const args = [`-input`, input, `-output`, output]
   if (threads) {
@@ -19,6 +20,6 @@ export async function objectStreamConverter({ exe, input, output, threads, prett
     args.push(`-with-indents`)
   }
   await spawn(tool, args, {
-    stdio: logger.isVerbose ? 'inherit' : null,
+    stdio: stdio,
   })
 }

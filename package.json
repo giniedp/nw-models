@@ -10,10 +10,13 @@
     "unpack": "yarn cli unpack",
     "convert-tables": "yarn cli convert-tables",
     "convert-slices": "yarn cli convert-slices",
+    "convert-catalog": "yarn cli convert-catalog",
+    "convert-gamefiles": "yarn convert-tables && yarn convert-slices && yarn convert-catalog",
+    "convert-models": "yarn cli convert-models",
     "convert": "yarn cli convert",
     "clean": "yarn nx reset && yarn rimraf dist",
     "viewer": "yarn cli viewer",
-    "cli": "yarn build && env-cmd -f .env node ./dist/cli/index.js"
+    "cli": "bun --env-file=.env run packages/cli/index.ts"
   },
   "author": "Ginie",
   "license": "MIT",
@@ -72,6 +75,7 @@
     "html-webpack-plugin": "^5.5.3",
     "jsdom": "^22.1.0",
     "lodash": "^4.17.21",
+    "long": "^5.2.3",
     "node-color-log": "^10.0.2",
     "node-worker-threads-pool": "^1.5.1",
     "npmlog": "^7.0.1",

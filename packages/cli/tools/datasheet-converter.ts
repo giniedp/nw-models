@@ -1,3 +1,4 @@
+import { StdioOptions } from "child_process"
 import { logger, spawn } from "../utils"
 import { resolveTool } from "./resolve-tool"
 
@@ -9,6 +10,7 @@ export interface DatasheetConverterArgs {
   threads?: number
   keepStructure?: boolean
   pretty?: boolean
+  stdio?: StdioOptions
 }
 
 export async function datasheetConverter({
@@ -19,6 +21,7 @@ export async function datasheetConverter({
   threads,
   keepStructure,
   pretty,
+  stdio
 }: DatasheetConverterArgs) {
   // https://github.com/new-world-tools/new-world-tools
   const tool = exe || resolveTool('datasheet-converter.exe')
@@ -33,6 +36,6 @@ export async function datasheetConverter({
     args.push(`-with-indents`)
   }
   await spawn(tool, args, {
-    stdio: logger.isVerbose ? 'inherit' : null,
+    stdio: stdio,
   })
 }

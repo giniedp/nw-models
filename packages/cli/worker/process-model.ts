@@ -2,11 +2,12 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { transformGltf } from '../file-formats/gltf'
 import { MtlObject, getMaterialTextures, loadMtlFile } from '../file-formats/mtl'
-import { cgfConverter } from '../tools/cgf-converter'
-import { colladaToGltf } from '../tools/collada-to-gltf'
-import type { ModelAsset, ModelMeshAsset, TransformContext } from '../types'
-import { appendToFilename, copyFile, logger, mkdir, replaceExtname, transformTextFile, wrapError } from '../utils'
+
+import { readCgf } from '../file-formats/cgf'
+import { cgfToGltf } from '../file-formats/cgf/converter/gltf'
 import { gameFileSystem } from '../file-formats/game-fs'
+import type { ModelAsset, ModelMeshAsset, TransformContext } from '../types'
+import { appendToFilename, copyFile, logger, mkdir, replaceExtname, wrapError, writeFile } from '../utils'
 
 export async function copyMaterial({
   material,
@@ -41,7 +42,6 @@ function transitFileNames({
     rootDir,
     material: material,
     model: model,
-    dae: replaceExtname(model, '.dae'),
     gltf: replaceExtname(model, '.gltf'),
   }
 }
@@ -53,7 +53,8 @@ export async function preprocessModel({
   sourceRoot,
   targetRoot,
   update,
-}: Pick<ModelMeshAsset & TransformContext, 'model' | 'material' | 'hash' | 'sourceRoot' | 'targetRoot' | 'update'>) {
+  ignoreSkin
+}: Pick<ModelMeshAsset & TransformContext, 'model' | 'material' | 'ignoreSkin' | 'hash' | 'sourceRoot' | 'targetRoot' | 'update'>) {
   if (!model) {
     return
   }
@@ -61,7 +62,7 @@ export async function preprocessModel({
   const modelSrc = path.join(sourceRoot, model)
   const files = transitFileNames({ rootDir: targetRoot, material, model, hash })
 
-  for (const file of [files.model, files.dae, files.gltf]) {
+  for (const file of [files.model, files.gltf]) {
     if (update && file && fs.existsSync(file)) {
       fs.rmSync(file)
     }
@@ -76,62 +77,14 @@ export async function preprocessModel({
     return
   }
 
-  if (!fs.existsSync(files.dae) || update) {
-    await cgfConverter({
-      input: files.model,
-      material: files.material,
-      dataDir: targetRoot, // speeds up texture lookup, but writes wrong relative path names for textures
-      outDir: path.dirname(files.dae),
-      logLevel: 0,
-      png: true,
+  if (!fs.existsSync(files.gltf) || update) {
+    const material = await getMaterial(files.rootDir, files.material)
+    const model = await readCgf(files.model, true)
+    const gltf = await cgfToGltf({ model, material, animations: [], ignoreBones: ignoreSkin })
+    await writeFile(files.gltf, JSON.stringify(gltf, null, 2), {
+      createDir: true,
+      encoding: 'utf-8',
     })
-      .then(() => {
-        if (!fs.existsSync(files.dae)) {
-          throw new Error(`no dae file generated`)
-        }
-      })
-      .catch(wrapError(`cgf-converter failed\n\t${files.model}`))
-
-    await transformTextFile(files.dae, async (text) => {
-      // TODO: review paths. fix and remove this workaround
-      text = text.replace(/<init_from>([^<]*\.(png|dds))<\/init_from>/gm, (match, texturePath) => {
-        texturePath = texturePath.replace(/(..[/\\])+/, '')
-        texturePath = path.join(targetRoot, texturePath)
-        texturePath = path.relative(path.dirname(files.dae), replaceExtname(texturePath, '.png'))
-        return `<init_from>${texturePath}<\/init_from>`
-      })
-      // colladaToGltf fails, when materials contain extra tags
-      // remove them
-      text = text
-        .split('<extra>')
-        .map((it) => {
-          const index = it.indexOf('</extra>')
-          if (index > 0) {
-            it = it.substr(index + 8)
-          }
-          return it
-        })
-        .join('')
-      return text
-    }).catch(wrapError(`transform dae model failed`))
-  } else {
-    logger.info(`skipped ${files.dae}`)
-  }
-
-  if (!fs.existsSync(files.gltf)) {
-    await new Promise((resolve) => process.nextTick(resolve))
-    await colladaToGltf({
-      input: files.dae,
-      output: files.gltf,
-    })
-      .then(() => {
-        if (!fs.existsSync(files.dae)) {
-          throw new Error(`no gltf file generated`)
-        }
-      })
-      .catch(wrapError(`collada2gltf failed\n\t${files.dae}`))
-  } else {
-    logger.info(`skipped ${files.gltf}`)
   }
 }
 
@@ -146,6 +99,7 @@ export async function processModel({
   draco,
   webp,
   ktx,
+  animations,
 }: ModelAsset & TransformContext & { webp?: boolean; draco?: boolean; ktx?: boolean }) {
   if (!meshes?.length) {
     return
@@ -169,7 +123,7 @@ export async function processModel({
     meshes.map(async ({ model, material, hash, transform }) => {
       const files = transitFileNames({ rootDir: transitRoot, material, model, hash })
       return {
-        model: files.gltf,
+        model: files.model, //files.gltf,
         material: await getMaterial(files.rootDir, files.material),
         transform,
       }
@@ -177,6 +131,7 @@ export async function processModel({
   )
     .then((meshes) => {
       return transformGltf({
+        animations: animations,
         meshes: meshes,
         output: finalFile,
         appearance: appearance,

@@ -5,9 +5,19 @@ import { ModelAsset, ModelMeshAsset } from '../types'
 import { CaseInsensitiveMap } from '../utils/caseinsensitive-map'
 import { logger } from '../utils/logger'
 
+export interface AssetCollectorOptions {
+  inputDir: string
+  // convertDir: string
+  // outputDir: string
+  modelFormat: 'gltf' | 'glb'
+}
+
 export type AssetCollector = ReturnType<typeof assetCollector>
-export function assetCollector({ sourceRoot, extname }: { sourceRoot: string; extname: string }) {
-  const gfs = gameFileSystem(sourceRoot)
+export function assetCollector(options: AssetCollectorOptions) {
+  const inputFS = gameFileSystem(options.inputDir)
+  // const convertFS = gameFileSystem(options.convertDir)
+  // const outputFS = gameFileSystem(options.outputDir)
+
   const assets = new CaseInsensitiveMap<string, ModelAsset>()
 
   async function addAsset({
@@ -16,6 +26,7 @@ export function assetCollector({ sourceRoot, extname }: { sourceRoot: string; ex
     outDir,
     outFile,
     fallbackMaterial,
+    animations,
   }: ModelAsset & { fallbackMaterial?: string }) {
     const refId = path.join(outDir, outFile)
     const resolvedMeshes: ModelMeshAsset[] = []
@@ -29,7 +40,7 @@ export function assetCollector({ sourceRoot, extname }: { sourceRoot: string; ex
         continue
       }
 
-      let model = gfs.resolveModelPath(mesh.model)
+      let model = inputFS.resolveModelPath(mesh.model)
       if (!model) {
         if (mesh.model) {
           logger.warn(`missing model ${mesh.model} for ${logTag}`)
@@ -40,9 +51,9 @@ export function assetCollector({ sourceRoot, extname }: { sourceRoot: string; ex
         logger.debug(`resolved model ${mesh.model} -> ${model} for ${logTag}`)
       }
 
-      let material = await gfs.resolveMaterialPath([mesh.material, fallbackMaterial])
+      let material = await inputFS.resolveMaterialPath([mesh.material, fallbackMaterial])
       if (!material) {
-        material = await gfs.resolveMaterialForModel(model)
+        material = await inputFS.resolveMaterialForModel(model)
         if (material) {
           logger.debug(`resolved material ${material} from model ${model} for ${logTag}`)
         }
@@ -51,7 +62,7 @@ export function assetCollector({ sourceRoot, extname }: { sourceRoot: string; ex
         if (mesh.model) {
           logger.warn(`missing material for ${logTag}`)
         }
-        material = gfs.defaults.mtl
+        material = inputFS.defaults.mtl
       }
 
       resolvedMeshes.push({
@@ -65,16 +76,18 @@ export function assetCollector({ sourceRoot, extname }: { sourceRoot: string; ex
       return
     }
     assets.set(refId, {
+      animations: animations,
       appearance: appearance,
       meshes: resolvedMeshes,
       outDir: outDir,
-      outFile: outFile + extname,
+      outFile: outFile + '.' + options.modelFormat,
     })
   }
   return {
-    gfs: gfs,
-    sourceRoot: sourceRoot,
-    values: () => assets.values(),
+    inputFS,
+    // convertFS,
+    // outputFS,
+    values: () => Array.from(assets.values()),
     addAsset,
   }
 }

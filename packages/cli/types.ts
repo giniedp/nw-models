@@ -8,6 +8,7 @@ export interface TransformContext {
 export interface ModelMeshAsset {
   model: string
   material: string
+  ignoreSkin?: boolean
   hash?: string
   transform?: number[]
   lights?: unknown[]
@@ -15,6 +16,7 @@ export interface ModelMeshAsset {
 
 export interface ModelAsset {
   appearance?: Appearance
+  animations: string[]
   meshes: ModelMeshAsset[]
   outDir: string
   outFile: string

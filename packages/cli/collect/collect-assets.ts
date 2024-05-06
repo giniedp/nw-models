@@ -9,16 +9,16 @@ import {
   WeaponAppearanceDefinition,
 } from '../types'
 import { assetCollector } from './asset-collector'
+import { collectCDF } from './collect-cdf'
+import { collectCostumeChanges } from './collect-costumechanges'
 import { collectHousingItems } from './collect-housing-items'
 import { collectInstrumentAppearances } from './collect-instrument-appearances'
 import { collectItemAppearances } from './collect-item-appearances'
+import { collectMounts } from './collect-mounts'
+import { collectNpcs } from './collect-npcs'
+import { collectSlices } from './collect-slices'
 import { collectWeaponAppearances } from './collect-weapon-appearances'
 import { collectWeapons } from './collect-weapons'
-import { collectSlices } from './collect-slices'
-import { collectMounts } from './collect-mounts'
-import { collectCostumeChanges } from './collect-costumechanges'
-import { collectCDF } from './collect-cdf'
-import { collectNpcs } from './collect-npcs'
 
 export async function collectAssets({
   mounts,
@@ -31,9 +31,9 @@ export async function collectAssets({
   weapons,
   sourceRoot,
   slicesRoot,
-  extname,
+  modelFormat,
   slices,
-  models
+  models,
 }: {
   mounts: Mounts[]
   costumeChanges: CostumeChanges[]
@@ -45,13 +45,13 @@ export async function collectAssets({
   npcs: Npc[]
   sourceRoot: string
   slicesRoot: string
-  extname?: string
+  modelFormat?: 'gltf' | 'glb'
   slices?: string[]
   models?: string[]
 }) {
   const result = assetCollector({
-    sourceRoot: sourceRoot,
-    extname: extname || '.gltf',
+    inputDir: sourceRoot,
+    modelFormat: modelFormat || 'gltf',
   })
   await collectMounts(mounts, result)
   await collectCostumeChanges(costumeChanges, result)

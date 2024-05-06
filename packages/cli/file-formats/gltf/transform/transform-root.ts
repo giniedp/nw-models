@@ -1,6 +1,6 @@
-import { Document, MathUtils, mat4, vec3, vec4 } from '@gltf-transform/core'
+import { Document, MathUtils, Node, mat4, vec3, vec4 } from '@gltf-transform/core'
 
-export function transformRoot({ matrix }: { matrix: mat4 }) {
+export function transformRoot({ matrix }: { matrix: mat4; }) {
   return (doc: Document) => {
     if (!matrix) {
       return
@@ -15,11 +15,11 @@ export function transformRoot({ matrix }: { matrix: mat4 }) {
     const rotation: vec4 = [0, 0, 0, 1]
     const scale: vec3 = [1, 1, 1]
     MathUtils.decompose(matrix, translation, rotation, scale)
-    // logger.debug(`transformRoot: ${matrix} -> ${translation} | ${rotation} | ${scale}`)
 
     const scene = doc.getRoot().getDefaultScene()
+
     for (const child of scene.listChildren()) {
-      if (child.getName() === 'Z_UP') {
+      if (hasTransform(child)) {
         const tChild = doc.createNode('Transform')
         tChild.setTranslation(translation)
         tChild.setRotation(rotation)
@@ -36,4 +36,23 @@ export function transformRoot({ matrix }: { matrix: mat4 }) {
       }
     }
   }
+}
+
+function hasTransform(node: Node) {
+  if (node.getSkin()) {
+    return true
+  }
+  const rotation = node.getRotation()
+  if (rotation && (rotation[0] !== 0 || rotation[1] !== 0 || rotation[2] !== 0 || rotation[3] !== 1)) {
+    return true
+  }
+  const translation = node.getTranslation()
+  if (translation && (translation[0] !== 0 || translation[1] !== 0 || translation[2] !== 0)) {
+    return true
+  }
+  const scale = node.getScale()
+  if (scale && (scale[0] !== 1 || scale[1] !== 1 || scale[2] !== 1)) {
+    return true
+  }
+  return false
 }

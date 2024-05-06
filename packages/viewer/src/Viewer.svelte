@@ -79,8 +79,8 @@
   <div class="relative flex flex-col" bind:this={containerEl}>
     <div bind:this={viewerEl} class="absolute inset-0" />
     <div class="flex flex-col gap-2 w-[200px] absolute top-4 right-4" style="z-index: 100">
-      <button type="button" class="btn btn-primary btn-active" on:click={fullscreen}> Fullscreen </button>
-      <!-- <button type="button" class="btn btn-primary btn-active" on:click={close}> Close </button> -->
+      <button type="button" class="btn btn-primary" on:click={fullscreen}> Fullscreen </button>
+      <!-- <button type="button" class="btn btn-primary" on:click={close}> Close </button> -->
       {#if $showDye}
         <DyePicker bind:color={$dyeR} disabled={$dyeRDisabled} />
         <DyePicker bind:color={$dyeG} disabled={$dyeGDisabled} />

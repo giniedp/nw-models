@@ -2,13 +2,19 @@ import { existsSync } from 'fs'
 import path from 'path'
 import { glob, readJsonFile, replaceExtname } from '../utils/file-utils'
 import { logger } from '../utils/logger'
-import { readCdf } from './cdf'
+import { readCDF } from './cdf'
 import { getMaterialNameForSkin, getSkinFromCloth, readCgf } from './cgf'
 import { readMtlFile } from './mtl'
 
 export type GameFileSystem = ReturnType<typeof gameFileSystem>
 export function gameFileSystem(rootDir: string) {
-  const pathTo = (...paths: string[]) => path.resolve(path.join(rootDir, ...paths))
+  const pathTo = (...paths: string[]) => {
+    const filePath = path.join(...paths)
+    if (path.isAbsolute(filePath)) {
+      return filePath
+    }
+    return path.join(rootDir, filePath)
+  }
 
   const gfs = {
     rootDir: rootDir,
@@ -24,7 +30,7 @@ export function gameFileSystem(rootDir: string) {
     },
     readJson: (file: string) => readJsonFile(pathTo(file)),
     readCgf: (file: string) => readCgf(pathTo(file)),
-    readCdf: (file: string) => readCdf(pathTo(file)),
+    readCdf: (file: string) => readCDF(pathTo(file)),
     readMtl: (file: string) => readMtlFile(pathTo(file)),
     resolveTexturePath: (file: string) => resolveTexturePath(gfs, file),
     resolveModelPath: (file: string) => resolveModelPath(gfs, file),

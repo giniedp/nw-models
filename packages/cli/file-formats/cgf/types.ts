@@ -24,65 +24,119 @@ export interface ChunkHeader {
   size: number
 }
 
-export enum ChunkType {
-  Any = 0x0,
-  Mesh = 0xcccc0000,
-  Helper = 0xcccc0001,
-  VertAnim = 0xcccc0002,
-  BoneAnim = 0xcccc0003,
-  GeomNameList = 0xcccc0004,
-  BoneNameList = 0xcccc0005,
-  MtlList = 0xcccc0006,
-  MRM = 0xcccc0007, //obsolete
-  SceneProps = 0xcccc0008,
-  Light = 0xcccc0009,
-  PatchMesh = 0xcccc000a,
-  Node = 0xcccc000b,
-  Mtl = 0xcccc000c,
-  Controller = 0xcccc000d,
-  Timing = 0xcccc000e,
-  BoneMesh = 0xcccc000f,
-  BoneLightBinding = 0xcccc0010,
-  MeshMorphTarget = 0xcccc0011,
-  BoneInitialPos = 0xcccc0012,
-  SourceInfo = 0xcccc0013, // Describes the source from which the cgf was exported: source max file, machine and user.
-  MtlName = 0xcccc0014, // provides material name as used in the material.xml file
-  ExportFlags = 0xcccc0015, // Describes export information.
-  DataStream = 0xcccc0016, // A data Stream
-  MeshSubsets = 0xcccc0017, // Describes an array of mesh subsets
-  MeshPhysicsData = 0xcccc0018, // Physicalized mesh data
-  CompiledBones = 0xacdc0000,
-  CompiledPhysicalBones = 0xacdc0001,
-  CompiledMorphTargets = 0xacdc0002,
-  CompiledPhysicalProxies = 0xacdc0003,
-  CompiledIntFaces = 0xacdc0004,
-  CompiledIntSkinVertices = 0xacdc0005,
-  CompiledExt2IntMap = 0xacdc0006,
-  BreakablePhysics = 0xacdc0007,
-  FaceMap = 0xaafc0000, // unknown chunk
-  SpeedInfo = 0xaafc0002, // Speed and distnace info
-  FootPlantInfo = 0xaafc0003, // Footplant info
-  BonesBoxes = 0xaafc0004, // unknown chunk
-  FoliageInfo = 0xaafc0005, // unknown chunk
-  // Star Citizen versions
-  NodeSC = 0xcccc100b,
-  CompiledBonesSC = 0xcccc1000,
-  CompiledPhysicalBonesSC = 0xcccc1001,
-  CompiledMorphTargetsSC = 0xcccc1002,
-  CompiledPhysicalProxiesSC = 0xcccc1003,
-  CompiledIntFacesSC = 0xcccc1004,
-  CompiledIntSkinVerticesSC = 0xcccc1005,
-  CompiledExt2IntMapSC = 0xcccc1006,
-  UnknownSC1 = 0xcccc2004,
-  BoneBoxesSC = 0x08013004,
-  // Star Citizen #ivo file chunks
-  MtlNameIvo = 0x8335674e,
-  CompiledBonesIvo = 0xc201973c, // Skeleton
-  CompiledPhysicalBonesIvo = 0x90c687dc, // Physics
-  MeshIvo = 0x9293b9d8, // SkinInfo
-  IvoSkin = 0xb875b2d9, // SkinMesh
-  BShapesGPU = 0x57a3befd,
-  BShapes = 0x875ccb28,
-
-  BinaryXmlDataSC = 0xcccbf004,
+export interface Chunk {
+  header: ChunkHeader
 }
+
+export enum ChunkType {
+  ANY     = 0,
+
+  Mesh = 0x1000,  // was 0xCCCC0000 in chunk files with versions <= 0x745
+  Helper,
+  VertAnim,
+  BoneAnim,
+  GeomNameList, // obsolete
+  BoneNameList,
+  MtlList,      // obsolete
+  MRM,          // obsolete
+  SceneProps,   // obsolete
+  Light,        // obsolete
+  PatchMesh,    // not implemented
+  Node,
+  Mtl,          // obsolete
+  Controller,
+  Timing,
+  BoneMesh,
+  BoneLightBinding, // obsolete. describes the lights binded to bones
+  MeshMorphTarget,  // describes a morph target of a mesh chunk
+  BoneInitialPos,   // describes the initial position (4x3 matrix) of each bone; just an array of 4x3 matrices
+  SourceInfo, // describes the source from which the cgf was exported: source max file, machine and user
+  MtlName, // material name
+  ExportFlags, // Special export flags.
+  DataStream, // Stream data.
+  MeshSubsets, // Array of mesh subsets.
+  MeshPhysicsData, // Physicalized mesh data.
+
+  // these are the new compiled chunks for characters
+  CompiledBones = 0x2000,  // was 0xACDC0000 in chunk files with versions <= 0x745
+  CompiledPhysicalBones,
+  CompiledMorphTargets,
+  CompiledPhysicalProxies,
+  CompiledIntFaces,
+  CompiledIntSkinVertices,
+  CompiledExt2IntMap,
+
+  BreakablePhysics = 0x3000,  // was 0xAAFC0000 in chunk files with versions <= 0x745
+  FaceMap,         // obsolete
+  MotionParameters,
+  FootPlantInfo,   // obsolete
+  BonesBoxes,
+  FoliageInfo,
+  Timestamp,
+  GlobalAnimationHeaderCAF,
+  GlobalAnimationHeaderAIM,
+  BspTreeData
+}
+
+export enum ControllerType {
+  NONE,
+  CRYBONE,
+  LINEAR1,
+  LINEAR3,
+  LINEARQ,
+  BEZIER1,
+  BEZIER3,
+  BEZIERQ,
+  TBC1,
+  TBC3,
+  TBCQ,
+  BSPLINE2O,
+  BSPLINE1O,
+  BSPLINE2C,
+  BSPLINE1C,
+  CONST, // this was given a value of 11, which is the same as BSPLINE2o.
+}
+
+export enum DataStreamType {
+  POSITIONS,
+  NORMALS,
+  TEXCOORDS,
+  COLORS,
+  COLORS2,
+  INDICES,
+  TANGENTS,
+  SHCOEFFS,
+  SHAPEDEFORMATION,
+  BONEMAPPING,
+  FACEMAP,
+  VERT_MATS,
+  QTANGENTS,
+  SKINDATA,
+  DUMMY2_, // used to be old console specific, dummy is needed to keep existing assets loadable
+  P3S_C4B_T2S,
+  NUM_TYPES,
+}
+
+export interface Key {
+  time: number // Time in ticks
+  position: Vector3 // absolute position
+  translation: Vector3 // relative position
+  rotation: Quaternion //Relative Quaternion if ARG==1?
+  unknown1: Vector3 // If ARG==6 or 10?
+  unknown2: number[] // If ARG==9?  array length = 2
+}
+
+export interface Vector3 {
+  x: number
+  y: number
+  z: number
+}
+
+export interface Quaternion {
+  x: number
+  y: number
+  z: number
+  w: number
+}
+
+// 0x7fffffff in binary is: 0111 1111 1111 1111 1111 1111 1111 1111

@@ -2,25 +2,27 @@ import * as fs from 'fs'
 import { logger } from '../../utils'
 
 import { BinaryReader } from './binary-reader'
-import { ChunkHeader, ChunkType, FileHeader, FileType, FileVersion } from './types'
+import { Chunk, ChunkHeader, ChunkType, FileHeader, FileType, FileVersion } from './types'
+import { readChunk, readChunkHeader } from './chunks'
 
 export interface CgfFile {
   file: string
   header: FileHeader
   table: ChunkHeader[]
-  reader?: BinaryReader
+  chunks?: Chunk[]
 }
 
-export async function readCgf(file: string, attachReader = false): Promise<CgfFile> {
+export async function readCgf(file: string, readChunks = false): Promise<CgfFile> {
   const buffer = await fs.promises.readFile(file)
   const reader = new BinaryReader(buffer.buffer)
   const header = readHeader(reader)
   const table = readChunkTable(reader, header)
+  const chunks = !readChunks ? undefined : await Promise.all(table.map(async (it) => readChunk(it, reader)))
   return {
     file: file,
     header: header,
     table: table,
-    reader: attachReader ? reader : undefined,
+    chunks: chunks?.filter((it) => !!it),
   }
 }
 
@@ -66,7 +68,7 @@ export async function getMaterialNameForSkin(skinFile: string) {
   assetId = reader.readString(36)
   reader.seekRelative(1)
   reader.seekRelative(26)
-  const count = reader.readByte()
+  const count = reader.readInt8()
   reader.seekRelative(3)
   reader.seekRelative(4 * count)
   name = reader.readStringNT()
@@ -81,25 +83,25 @@ function readHeader(reader: BinaryReader): FileHeader {
   const signature = reader.readString(4)
   if (signature === 'CrCh') {
     return {
-      version: reader.readUInt() as FileVersion,
-      chunkCount: reader.readUInt(),
-      chunkOffset: reader.readUInt(),
+      version: reader.readUInt32() as FileVersion,
+      chunkCount: reader.readUInt32(),
+      chunkOffset: reader.readUInt32(),
     }
   }
   if (signature === '#ivo') {
     return {
-      version: reader.readUInt() as FileVersion,
-      chunkCount: reader.readUInt(),
-      chunkOffset: reader.readUInt(),
+      version: reader.readUInt32() as FileVersion,
+      chunkCount: reader.readUInt32(),
+      chunkOffset: reader.readUInt32(),
     }
   }
   reader.seekAbsolute(0)
   if (reader.readString(8).startsWith('CryTek')) {
     return {
-      type: reader.readUInt() as FileType,
-      version: reader.readUInt() as FileVersion,
-      chunkOffset: reader.readUInt() + 4,
-      chunkCount: reader.readUInt(),
+      type: reader.readUInt32() as FileType,
+      version: reader.readUInt32() as FileVersion,
+      chunkOffset: reader.readUInt32() + 4,
+      chunkCount: reader.readUInt32(),
     }
   }
   throw new Error('file not supported')
@@ -116,45 +118,6 @@ function readChunkTable(reader: BinaryReader, header: FileHeader) {
   return chunkHeaders
 }
 
-function readChunkHeader(reader: BinaryReader, header: FileHeader): ChunkHeader {
-  if (header.version === FileVersion.CryTek1And2) {
-    const type = reader.readUInt()
-    const typeName = ChunkType[type]
-    return {
-      type: type,
-      typeName: typeName,
-      version: reader.readUInt(),
-      offset: reader.readUInt(),
-      id: reader.readInt(),
-      size: 0,
-    }
-  }
-  if (header.version === FileVersion.CryTek3) {
-    const type = reader.readUInt()
-    const typeName = ChunkType[type]
-    return {
-      type: type,
-      typeName: typeName,
-      version: reader.readUInt(),
-      offset: reader.readUInt(),
-      id: reader.readInt(),
-      size: reader.readUInt(),
-    }
-  }
-  if (header.version === FileVersion.CryTek_3_6) {
-    const type = reader.readUShort() + 0xcccbf000
-    const typeName = ChunkType[type]
-    return {
-      type: type,
-      typeName: typeName,
-      version: reader.readUShort(),
-      id: reader.readInt(),
-      size: reader.readUInt(),
-      offset: reader.readUInt(),
-    }
-  }
-  throw new Error('file not supported')
-}
 
 export function getSkinFromCloth(file: string, attachReader = false): string {
   if (!fs.existsSync(file)) {
