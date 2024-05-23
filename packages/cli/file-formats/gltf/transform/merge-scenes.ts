@@ -2,12 +2,12 @@ import { Document } from '@gltf-transform/core'
 import { createTransform } from '@gltf-transform/functions'
 
 export function mergeScenes() {
-  return createTransform('mergeScenes', (doc: Document) => {
-
+  return createTransform('merge-scenes', (doc: Document) => {
     const scenes = doc.getRoot().listScenes()
     if (scenes.length <= 1) {
       return
     }
+    let count = 0
     const defaultScene = doc.getRoot().getDefaultScene()
     for (const scene of scenes) {
       if (scene === defaultScene) {
@@ -19,6 +19,10 @@ export function mergeScenes() {
         defaultScene.addChild(child)
       }
       scene.detach()
+      count++
+    }
+    if (count) {
+      doc.getLogger().debug(`Merged ${count} scenes into the default scene.`)
     }
   })
 }

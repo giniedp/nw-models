@@ -53,17 +53,17 @@
   }
 
   async function loadData() {
-    const data = await fetch('stats.json').then((it) => it.json())
+    const data = await fetch('assets.json').then((it) => it.json())
     gridApi.setRowData(data)
   }
 
   function modelPath(data: any) {
-    return [data.outDir, data.outFile].join('/')
+    return [data.dir, data.file].join('/')
   }
   const columnDefs: ColDef[] = [
     {
       headerName: 'Dir',
-      field: 'outDir',
+      field: 'dir',
       filter: true,
       resizable: true,
       sortable: true,
@@ -72,7 +72,7 @@
     },
     {
       headerName: 'File',
-      field: 'outFile',
+      field: 'file',
       filter: true,
       resizable: true,
       sortable: true,
@@ -81,7 +81,7 @@
     },
     {
       headerName: 'OK',
-      field: 'hasModel',
+      field: 'exists',
       filter: true,
       resizable: false,
       sortable: true,
@@ -90,40 +90,40 @@
     },
     {
       headerName: 'Size',
-      field: 'fileSize',
+      field: 'size',
       resizable: true,
       sortable: true,
       width: 100,
       valueFormatter: ({ value }) => `${((value || 0) / 1024 / 1024).toFixed(2)}Mb`,
     },
-    {
-      headerName: 'Shader',
-      field: '_shaders',
-      filter: true,
-      resizable: true,
-      floatingFilter: true,
-      width: 150,
-      cellRenderer: ({ value }: ICellRendererParams) => {
-        const tags = (value || '')
-          .map((it: unknown) => `<span class="badge badge-xs badge-primary">${it}</span>`)
-          .join('')
-        return `<div class="flex flex-row flex-wrap gap-1 p-1">${tags}</div>`
-      },
-    },
-    {
-      headerName: 'Textures',
-      field: '_textures',
-      filter: true,
-      resizable: true,
-      floatingFilter: true,
-      width: 300,
-      cellRenderer: ({ value }: ICellRendererParams) => {
-        const tags = (value || '')
-          .map((it: unknown) => `<span class="badge badge-xs badge-primary">${it}</span>`)
-          .join('')
-        return `<div class="flex flex-row flex-wrap gap-1 p-1 h-full">${tags}</div>`
-      },
-    },
+    // {
+    //   headerName: 'Shader',
+    //   field: '_shaders',
+    //   filter: true,
+    //   resizable: true,
+    //   floatingFilter: true,
+    //   width: 150,
+    //   cellRenderer: ({ value }: ICellRendererParams) => {
+    //     const tags = (value || '')
+    //       .map((it: unknown) => `<span class="badge badge-xs badge-primary">${it}</span>`)
+    //       .join('')
+    //     return `<div class="flex flex-row flex-wrap gap-1 p-1">${tags}</div>`
+    //   },
+    // },
+    // {
+    //   headerName: 'Textures',
+    //   field: '_textures',
+    //   filter: true,
+    //   resizable: true,
+    //   floatingFilter: true,
+    //   width: 300,
+    //   cellRenderer: ({ value }: ICellRendererParams) => {
+    //     const tags = (value || '')
+    //       .map((it: unknown) => `<span class="badge badge-xs badge-primary">${it}</span>`)
+    //       .join('')
+    //     return `<div class="flex flex-row flex-wrap gap-1 p-1 h-full">${tags}</div>`
+    //   },
+    // },
   ]
 </script>
 

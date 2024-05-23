@@ -8,15 +8,15 @@
     "dev": "yarn nx run-many --target=dev",
     "build": "yarn nx run-many --target=build",
     "unpack": "yarn cli unpack",
+    "env": "yarn cli env",
     "convert-tables": "yarn cli convert-tables",
     "convert-slices": "yarn cli convert-slices",
     "convert-catalog": "yarn cli convert-catalog",
-    "convert-gamefiles": "yarn convert-tables && yarn convert-slices && yarn convert-catalog",
     "convert-models": "yarn cli convert-models",
-    "convert": "yarn cli convert",
+    "inspect": "yarn cli inspect",
     "clean": "yarn nx reset && yarn rimraf dist",
     "viewer": "yarn cli viewer",
-    "cli": "bun --env-file=.env run packages/cli/index.ts"
+    "cli": "yarn build && env-cmd -f .env node ./dist/cli/index.js"
   },
   "author": "Ginie",
   "license": "MIT",
@@ -33,6 +33,7 @@
     "@gltf-transform/functions": "^3.5.1",
     "@tailwindcss/typography": "^0.5.9",
     "@tsconfig/svelte": "^5.0.2",
+    "@types/bun": "^1.1.1",
     "@types/capture-console": "^1.0.1",
     "@types/cli-progress": "^3.11.0",
     "@types/colors": "^1.2.1",
@@ -44,6 +45,7 @@
     "@types/node": "^18.11.12",
     "@types/npmlog": "^4.1.4",
     "@types/rimraf": "^4.0.5",
+    "@types/sax": "^1.2.7",
     "@types/semver": "^7.5.1",
     "@types/sharp": "^0.32.0",
     "@types/shelljs": "^0.8.12",
@@ -66,6 +68,7 @@
     "daisyui": "^3.6.1",
     "dom-parser": "^0.1.6",
     "dotenv": "^16.3.1",
+    "dotenv-expand": "^11.0.6",
     "draco3dgltf": "^1.5.6",
     "env-cmd": "^10.1.0",
     "express": "^4.18.2",
@@ -86,6 +89,7 @@
     "postcss-preset-env": "^9.1.2",
     "quicktype-core": "^23.0.75",
     "rimraf": "^5.0.1",
+    "sax": "^1.3.0",
     "semver": "^7.5.4",
     "sharp": "^0.32.4",
     "style-loader": "^3.3.3",
@@ -105,7 +109,7 @@
     "webpack-dev-server": "^4.15.1",
     "webpack-node-externals": "^3.0.0",
     "workerpool": "^6.4.0",
-    "zod": "^3.22.2"
+    "zod": "^3.23.6"
   },
   "packageManager": "yarn@1.22.19"
 }

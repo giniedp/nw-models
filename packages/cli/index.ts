@@ -6,4 +6,5 @@ import './commands/convert-slices'
 import './commands/convert-tables'
 import './commands/unpack'
 import './commands/viewer'
+import './commands/env'
 program.parse(process.argv)

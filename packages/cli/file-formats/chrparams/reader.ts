@@ -1,30 +1,7 @@
 import { XMLParser } from 'fast-xml-parser'
 import * as fs from 'fs'
-import * as path from 'path'
-
-export interface Animation {
-  name: string
-  path: string
-}
-
-export interface Joint {
-  name: string
-}
-
-export type ChrParams = {
-  Model: {
-    File: string
-  }
-  AnimationList: {
-    Animation: Animation | Array<Animation>
-  }
-  BBoxIncludeList: {
-    Joint: Joint | Array<Joint>
-  }
-}
-export type ChrParamsFile = {
-  Params: ChrParams
-}
+import path from 'path'
+import { Animation, ChrParams, ChrParamsDocument } from './types'
 
 const parser = new XMLParser({
   preserveOrder: false,
@@ -36,30 +13,64 @@ const parser = new XMLParser({
   attributeNamePrefix: '',
 })
 
-export async function readChrParams(file: string) {
+export type IncludeHandler = (file: string) => Promise<ChrParams>
+
+export async function readChrParamsFile(file: string, options?: { inputDir: string }) {
+  // logger.debug('readChrParamsFile', file)
   const data = await fs.promises.readFile(file, 'utf-8')
-  return parseChrParams(data)
+  let includeHandler: IncludeHandler = null
+  if (options?.inputDir) {
+    includeHandler = createIncludeHandler(options.inputDir, { knownFiles: [file] })
+  }
+  return parseChrParams(data, { includeHandler })
 }
 
-export function parseChrParams(data: string) {
-  return (parser.parse(data) as ChrParamsFile).Params
+export async function parseChrParams(
+  data: string,
+  options: {
+    includeHandler?: IncludeHandler
+  },
+) {
+  const params = (parser.parse(data) as ChrParamsDocument).Params
+  if (options.includeHandler) {
+    await processInclude(params, options.includeHandler)
+  }
+  return params
 }
 
-export function getChrParamsAnimationGlobs(params: ChrParams, rootDir: string) {
-  const result: string[] = []
-  let filePath: string = null
-  for (const animation of toArray(params.AnimationList.Animation)) {
-    if (animation.name === '#filepath') {
-      filePath = animation.path
+function createIncludeHandler(inputDir: string, options?: { knownFiles: string[] }): IncludeHandler {
+  const known = new Set<string>()
+  options?.knownFiles?.forEach((file) => {
+    known.add(path.normalize(file))
+  })
+  return async (file: string) => {
+    const toInclude = path.normalize(path.resolve(inputDir, file))
+    // logger.debug('include', toInclude)
+    if (known.has(toInclude)) {
+      throw new Error(`Circular include detected: ${toInclude}`)
+    }
+    known.add(toInclude)
+    return readChrParamsFile(toInclude)
+  }
+}
+
+async function processInclude(params: ChrParams, includeHandler: IncludeHandler) {
+  let animation = params.AnimationList.Animation || []
+  const result: Animation[] = []
+  if (!Array.isArray(animation)) {
+    animation = [animation]
+  }
+  for (const anim of animation) {
+    if (anim.name !== '$Include') {
+      result.push(anim)
       continue
     }
-    if (animation.path.endsWith('.caf') && filePath) {
-      result.push(path.join(rootDir, filePath, animation.path))
+    const included = await includeHandler(anim.path)
+    let includedAnims = included.AnimationList.Animation || []
+    if (!Array.isArray(includedAnims)) {
+      includedAnims = [includedAnims]
     }
+    result.push(...includedAnims)
   }
-  return result
-}
-
-function toArray<T>(it: T | T[]) {
-  return Array.isArray(it) ? it : [it]
+  params.AnimationList.Animation = result
 }

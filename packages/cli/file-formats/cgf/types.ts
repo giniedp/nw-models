@@ -26,6 +26,7 @@ export interface ChunkHeader {
 
 export interface Chunk {
   header: ChunkHeader
+  debug?: () => any[]
 }
 
 export enum ChunkType {

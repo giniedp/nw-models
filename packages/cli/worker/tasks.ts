@@ -1,11 +1,10 @@
-import { processModel, preprocessModel, copyMaterial } from './process-model'
+import { processModel, copyMaterial } from './process-model'
 import { processTexture } from './process-texture'
 
 export const WORKER_TASKS = {
   processModel,
   processTexture,
   copyMaterial,
-  preprocessModel,
 } as const
 
 export type WorkerTasks = typeof WORKER_TASKS

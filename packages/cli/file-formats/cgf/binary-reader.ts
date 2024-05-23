@@ -292,4 +292,7 @@ export class BinaryReader {
     return result
   }
 
+  public alignPosition(alignment: number) {
+    this.position = Math.ceil(this.position / alignment) * alignment
+  }
 }

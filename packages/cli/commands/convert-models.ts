@@ -4,36 +4,90 @@ import * as fs from 'fs'
 import { cpus } from 'os'
 import * as path from 'path'
 
-import { assetCollector } from 'collect/asset-collector'
-import { collectCDFAsset } from 'collect/collect-cdf'
-import { selectMaterials, selectModels, selectTextures } from '../collect'
+import { collectInstrumentAppearances } from '../collect/collect-appearances-instrument'
+import { collectItemAppearances } from '../collect/collect-appearances-items'
+import { collectWeaponAppearances } from '../collect/collect-appearances-weapon'
+import { collectCapitals } from '../collect/collect-capitals'
+import { collectCdf } from '../collect/collect-cdf'
+import { collectCgf } from '../collect/collect-cgf'
+import { collectCostumeChanges } from '../collect/collect-costumechanges'
+import { collectFile } from '../collect/collect-file'
+import { collectHousingItems } from '../collect/collect-housing-items'
+import { collectLevel } from '../collect/collect-level'
+import { collectMounts } from '../collect/collect-mounts'
+import { collectNpcs } from '../collect/collect-npcs'
+import { collectSlices } from '../collect/collect-slices'
+import { collectWeapons } from '../collect/collect-weapons'
+import { assetCollector } from '../collect/collector'
 import { CONVERT_DIR, MODELS_DIR, UNPACK_DIR } from '../env'
+import { getMtlTextures, getSubMaterials, loadMtlFile, readMtlFile } from '../file-formats/mtl'
 import { ModelAsset } from '../types'
-import { logger, writeFile } from '../utils'
+import { CaseInsensitiveMap, CaseInsensitiveSet, glob, logger, readJSONFile, replaceExtname, writeFile } from '../utils'
+import { withProgressBar } from '../utils/progress'
 import { runTasks } from '../worker'
 
 program
   .command('convert-models')
   .description('Converts models to GLTF file format')
-  .requiredOption('-i, --unpackDir [unpackDir]', 'Path to the unpacked game directory', UNPACK_DIR)
-  .requiredOption('-x, --transitDir [transitDir]', 'Path to the intermediate directory', CONVERT_DIR)
-  .requiredOption('-o, --outputDir [outputDir]', 'Output Path to the output directory', MODELS_DIR)
-  .option('--update', 'Ignores previously converted and exported data and overrides files')
-  .option('--thread-count <threadCount>', 'Number of threads', String(cpus().length))
-  .option('--texture-size <textureSize>', 'Resize all textures to given size.')
+  .requiredOption('-i, --unpack-dir [unpackDir]', 'Path to the unpacked game directory', UNPACK_DIR)
+  .requiredOption('-c, --convert-dir [convertDir]', 'Path to the intermediate directory', CONVERT_DIR)
+  .requiredOption('-o, --output-dir [outputDir]', 'Output Path to the output directory', MODELS_DIR)
+  .option(
+    '-u, --update <mode>',
+    'Ignores previously converted and exported data and overrides files. (may be all or models)',
+    'all',
+  )
+  .option('-tc, --thread-count <threadCount>', 'Number of threads', String(cpus().length))
+  .option('-ts, --texture-size <textureSize>', 'Resize all textures to given size.')
+  .option('--embed', 'Embeds binary buffer inside the model file', true)
+  .option('--no-embed', 'Does not embed binary buffer inside the model file')
   .option('--draco', 'Enables Draco compression', false)
   .option('--webp', 'Converts textures to wepb instead of png before embedding into model', false)
   .option('--ktx', 'Compresses textures to ktx instead of png before embedding into model', false)
   .option('--glb', 'Exports binary GLTF .glb files instead of .gltf JSON', false)
   .option('--verbose', 'Enables log output (automatically enabled if threads is 0)')
+  .option('--animations', 'Enables animations', false)
 
-  .option('-id, --id <id>', 'Filter by object identifier (may be substring, comma separated)')
-  .option('-iid, --itemId <itemId>', 'Prefilter by ItemID (may be substring, comma separated)')
-  .option('-hash, --hash <md5Hash>', 'Filter by md5 hash (must be exact, comma separated)')
-  .option('-skin, --skin <skinFile>', 'Filter by skin file name (may be substring, comma separated)')
-  .option('-at, --asset-type <assetType>', 'Filter by asset type. (must be exact, comma separated)')
-  .option('-slice, --slice <sliceFile>', 'Forcefully convert a single slice file')
-  .option('-cdf, --cdf <cdfFile>', 'Forcefully convert a single .cdf file')
+  // cdf
+  .option('-cdf, --cdf <cdfFile>', 'Convert a specific .cdf file. (may be glob pattern)')
+  // cgf
+  .option('-cgf, --cgf <cgfFile>', 'Convert a specific .cgf (or .skin) file. (may be glob pattern)')
+  // slices
+  .option('-slice, --slice <sliceFile>', 'Converts models from .dynamicslice files. (may be glob pattern)')
+  .option('-recursive, --recursive', 'Recursively process slice file. (potentially huge model output)')
+  // levels, entities xml
+  .option('-level, --level [ids...]', 'Converts levels from levels directory.')
+  // capitals
+  .option('-capital, --capital <capitalFile>', 'Converts models from .capitals files. (may be glob pattern)')
+  .option('-merge, --merge', 'Merges all capital files into one giant model.')
+  // costumes
+  .option(
+    '-costumes, --costumes [ids...]',
+    'Converts all costumes from costumes table. Models are placed in "costumechanges" directory. If list of ids is provided, only those costumes are converted.',
+  )
+  // npcs
+  .option(
+    '-npcs, --npcs [ids...]',
+    'Converts all npcs from npcs table. Models are placed in "npcs" directory. If list of ids is provided, only those npcs are converted.',
+  )
+  // mounts
+  .option(
+    '-mounts, --mounts [ids...]',
+    'Converts all mounts from mounts table. Models are placed in "mounts" directory. If list of ids is provided, only those mounts are converted.',
+  )
+  // housing items
+  .option(
+    '-housing, --housing [ids...]',
+    'Converts all housing items from housing items tables. Models are placed in "housingitems" directory. If list of ids is provided, only those items are converted.',
+  )
+  // housing items
+  .option('-appearance, --appearance [ids...]', 'Converts weapon,item,instrument appearances.')
+  // from process file
+  .option('-file, --file [specFile]')
+  .option('-id, --id [ids...]')
+  //
+  .option('-debug, --debug')
+  //
   .action(async (opts) => {
     logger.verbose(true)
     logger.debug('convert', opts)
@@ -41,7 +95,7 @@ program
     const threads: number = Number(opts.threadCount) || 0
     const options: ConvertModelsOptions = {
       inputDir: opts.unpackDir,
-      transitDir: opts.transitDir,
+      convertDir: opts.convertDir,
       outputDir: opts.outputDir,
 
       textureSize: Number(opts.textureSize) || null,
@@ -49,6 +103,7 @@ program
       draco: !!opts.draco,
       webp: !!opts.webp,
       ktx: !!opts.ktx,
+      embed: !!opts.embed,
 
       verbose: opts.verbose ?? !threads,
       threadCount: threads,
@@ -57,36 +112,145 @@ program
       assets: [],
     }
 
+    const slicesDir = path.join(options.convertDir, 'slices')
+    const tablesDir = path.join(options.convertDir, 'sharedassets', 'springboardentitites', 'datatables')
+    const catalogFile = path.join(options.convertDir, 'assetcatalog.json')
+    const catalog = await readJSONFile<Record<string, string>>(catalogFile)
+
     const collector = assetCollector({
       inputDir: options.inputDir,
+      tablesDir: tablesDir,
+      slicesDir: slicesDir,
+      catalog: catalog,
       modelFormat: options.binary ? 'glb' : 'gltf',
     })
 
-    const modelFiles = await collector.inputFS.glob([
-      //'objects/characters/npc/**/*.cdf'
-      //'objects/characters/npc/natural/adiana/adiana.cdf'
-      'objects/characters/npc/supernatural/sandworm/sandworm.cdf',
-      'objects/characters/npc/supernatural/apophis/apophis.cdf'
-    ])
-
-    for (const modelFile of modelFiles) {
-      await collectCDFAsset(modelFile, collector, '')
+    function idsFromParam(param: unknown) {
+      if (!Array.isArray(param)) {
+        return null
+      }
+      return param.map((it: string) => it.toLowerCase())
     }
 
-    options.assets = collector.values()
+    async function globFiles(dir: string, pattern: string) {
+      const files = await glob(path.join(dir, pattern))
+      return files.map((it) => path.relative(dir, it))
+    }
 
-    await convertModels(options)
+    if (opts.cdf) {
+      await collectCdf(collector, {
+        files: await globFiles(options.inputDir, opts.cdf),
+      })
+    }
+
+    if (opts.cgf) {
+      await collectCgf(collector, {
+        files: await globFiles(options.inputDir, opts.cgf),
+      })
+    }
+
+    if (opts.slice) {
+      await collectSlices(collector, {
+        files: await globFiles(options.convertDir, opts.slice),
+        convertDir: options.convertDir,
+      })
+    }
+
+    if (opts.capital) {
+      const ids = idsFromParam(opts.id)
+      await collectCapitals(collector, {
+        files: await globFiles(options.convertDir, opts.capital),
+        convertDir: options.convertDir,
+        merge: !!opts.merge,
+        filter: (item) => !ids || ids.includes(item.id),
+      })
+    }
+
+    if (opts.housing) {
+      const ids = idsFromParam(opts.housing)
+      await collectHousingItems(collector, {
+        filter: (item) => !ids || ids.includes(item.HouseItemID.toLowerCase()),
+      })
+    }
+
+    if (opts.npcs) {
+      const ids = idsFromParam(opts.npcs)
+      await collectNpcs(collector, {
+        filter: (item) => !ids || ids.includes(item.VariantID.toLowerCase()),
+      })
+    }
+
+    if (opts.costumes) {
+      const ids = idsFromParam(opts.costumes)
+      await collectCostumeChanges(collector, {
+        filter: (item) => !ids || ids.includes(item.CostumeChangeId.toLowerCase()),
+      })
+    }
+
+    if (opts.mounts) {
+      const ids = idsFromParam(opts.mounts)
+      await collectMounts(collector, {
+        filter: (item) => !ids || ids.includes(item.MountId.toLowerCase()),
+      })
+    }
+
+    if (opts.appearance) {
+      const ids = idsFromParam(opts.appearance)
+      await collectWeaponAppearances(collector, {
+        filter: (item) => !ids || ids.includes(item.WeaponAppearanceID.toLowerCase()),
+      })
+      await collectInstrumentAppearances(collector, {
+        filter: (item) => !ids || ids.includes(item.WeaponAppearanceID.toLowerCase()),
+      })
+      await collectItemAppearances(collector, {
+        filter: (item) =>
+          !ids || ids.includes(item.ItemID.toLowerCase()) || ids.includes(item.AppearanceName?.toLowerCase()),
+      })
+      await collectWeapons(collector, {
+        filter: (item) => !ids || ids.includes(item.WeaponID.toLowerCase()),
+      })
+    }
+
+    if (opts.file) {
+      const ids = idsFromParam(opts.id)
+      await collectFile(collector, {
+        file: opts.file,
+        filter: (item) => !ids || ids.includes(item.id.toLowerCase()),
+        convertDir: options.convertDir,
+      })
+    }
+
+    if (opts.level) {
+      const ids = idsFromParam(opts.level)
+      await collectLevel(collector, {
+        filter: (level) => !ids || ids.includes(level.toLowerCase()),
+      })
+    }
+
+    options.assets = collector.assets()
+
+    if (!options.assets.length) {
+      logger.info('No models found to convert')
+      return
+    }
+
+    if (opts.debug) {
+      await debugCollection(options)
+    } else {
+      await convertModels(options)
+    }
   })
 
 interface ConvertModelsOptions {
   inputDir: string
-  transitDir: string
+  convertDir: string
   outputDir: string
   assets: ModelAsset[]
   verbose: boolean
   threadCount: number
-  update: boolean
+  update: 'all' | 'models'
   textureSize: number
+  embed: boolean
   binary: boolean
   draco: boolean
   webp: boolean
@@ -95,23 +259,19 @@ interface ConvertModelsOptions {
 async function convertModels({
   assets,
   inputDir,
-  transitDir,
+  convertDir,
   outputDir,
   verbose,
   threadCount,
   update,
   textureSize,
+  embed,
   binary,
   draco,
   webp,
   ktx,
 }: ConvertModelsOptions) {
-  const models = await selectModels({
-    sourceRoot: inputDir,
-    assets: assets,
-  })
   const materials = await selectMaterials({
-    sourceRoot: inputDir,
     assets: assets,
   })
   const textures = await selectTextures({
@@ -123,14 +283,13 @@ async function convertModels({
   logger.info(
     [
       '',
-      `    assets: ${logger.ansi.yellow(String(assets.length))}`,
-      `    models: ${logger.ansi.yellow(String(models.length))}`,
+      `    models: ${logger.ansi.yellow(String(assets.length))}`,
       ` materials: ${logger.ansi.yellow(String(materials.length))}`,
       `  textures: ${logger.ansi.yellow(String(textures.length))}`,
       ``,
     ].join('\n'),
   )
-  logger.info('Step 1/4: Convert and copy textures')
+  logger.info('Step 1/3: Convert and copy textures')
   logger.verbose(verbose)
 
   await runTasks({
@@ -138,25 +297,25 @@ async function convertModels({
     taskName: 'processTexture',
     tasks: textures.map((texture) => {
       return {
-        sourceRoot: inputDir,
-        targetRoot: transitDir,
+        inputDir: inputDir,
+        outputDir: convertDir,
         texture: texture,
-        update: update,
+        update: update === 'all',
         texSize: textureSize,
       }
     }),
   })
 
   logger.verbose(true)
-  logger.info('Step 2/4: Copy materials')
+  logger.info('Step 2/3: Copy materials')
   logger.verbose(verbose)
 
   await runTasks<'copyMaterial'>({
     taskName: 'copyMaterial',
     tasks: materials.map((file) => {
       return {
-        sourceRoot: inputDir,
-        targetRoot: transitDir,
+        inputDir: inputDir,
+        outputDir: convertDir,
         material: file,
         update: update,
       }
@@ -164,25 +323,7 @@ async function convertModels({
   })
 
   logger.verbose(true)
-  logger.info('Step 3/4: Convert and copy models')
-  logger.verbose(verbose)
-  await runTasks({
-    threads: threadCount,
-    taskName: 'preprocessModel',
-    tasks: models.map(({ model, material, hash }) => {
-      return {
-        sourceRoot: inputDir,
-        targetRoot: transitDir,
-        hash: hash,
-        update,
-        model: model,
-        material: material,
-      }
-    }),
-  })
-
-  logger.verbose(true)
-  logger.info('Step 4/4: Generate item variations')
+  logger.info('Step 3/3: Generate models')
   logger.verbose(verbose)
   await runTasks({
     threads: threadCount,
@@ -190,56 +331,113 @@ async function convertModels({
     tasks: assets.map((asset) => {
       return {
         ...asset,
-        sourceRoot: inputDir,
-        transitRoot: transitDir,
-        targetRoot: outputDir,
-        update,
+        inputDir,
+        convertDir,
+        outputDir,
+        update: update === 'all' || update === 'models',
         binary,
         webp,
         draco,
+        embed,
         ktx,
       }
     }),
   })
+
+  writeAssets({ assets, outputDir })
 }
 
-async function writeStats({ outDir, assets }: { assets: ModelAsset[]; outDir: string }) {
-  let assetCount = assets.length
-  let fileCount = 0
-  let filesMissing = 0
-  let sizeInBytes = 0
+async function selectTextures({ sourceRoot, assets }: { sourceRoot: string; assets: ModelAsset[] }) {
+  const result = new CaseInsensitiveSet<string>()
+  for (const asset of assets) {
+    const mtlTags = new CaseInsensitiveSet<string>()
+    const texTags = new CaseInsensitiveSet<string>()
+    for (const mesh of asset.meshes) {
+      const mtl = await loadMtlFile(path.join(sourceRoot, mesh.material))
+      for (const it of mtl) {
+        mtlTags.add(it.Shader)
+        const textures = getMtlTextures(it) || []
+        for (const texture of textures) {
+          texTags.add(texture.Map)
+          result.add(replaceExtname(texture.File, '.dds'))
+        }
+      }
+    }
+    Object.assign(asset, {
+      _shaders: Array.from(mtlTags.values()).filter((it) => !!it),
+      _textures: Array.from(texTags.values()).filter((it) => !!it),
+    })
+  }
+  return Array.from(result)
+}
 
-  const stats = assets.map((item) => {
-    const modelFile = path.join(outDir, item.outDir, item.outFile).toLowerCase()
-    const modelExists = fs.existsSync(modelFile)
-    const modelSize = modelExists ? fs.statSync(modelFile).size : 0
-    fileCount += modelExists ? 1 : 0
-    filesMissing += modelExists ? 0 : 1
-    sizeInBytes += modelSize
+async function selectMaterials({ assets }: { assets: ModelAsset[] }) {
+  const result = new CaseInsensitiveSet<string>()
+  for (const asset of assets) {
+    for (const mesh of asset.meshes) {
+      result.add(mesh.material)
+    }
+  }
+  return Array.from(result)
+}
 
-    return {
-      ...item,
-      meshCount: item.meshes.length,
-      filePath: modelFile,
-      fileSize: modelSize,
-      hasModel: modelExists && modelSize > 0,
+interface StatsRow {
+  dir: string
+  file: string
+  exists: boolean
+  size: number
+}
+
+async function writeAssets({ assets, outputDir }: { assets: ModelAsset[]; outputDir: string }) {
+  const statsFile = path.join(outputDir, 'assets.json')
+  const stats = new Map<string, StatsRow>()
+
+  if (fs.existsSync(statsFile)) {
+    const rows = JSON.parse(fs.readFileSync(statsFile, 'utf-8')) as StatsRow[]
+    for (const row of rows) {
+      stats.set(path.normalize(path.join(row.dir, row.file)), row)
+    }
+  }
+
+  for (const asset of assets) {
+    const filePath = path.join(outputDir, asset.outFile)
+    const exists = fs.existsSync(filePath)
+    const size = exists ? fs.statSync(filePath).size : 0
+    const dir = path.dirname(asset.outFile)
+    const file = path.basename(asset.outFile)
+    stats.set(path.normalize(asset.outFile), { dir, file, exists, size })
+  }
+  await writeFile(statsFile, JSON.stringify(Array.from(stats.values()), null, 2), {
+    encoding: 'utf-8',
+    createDir: true,
+  })
+}
+
+async function debugCollection(options: ConvertModelsOptions) {
+  const shaders = new CaseInsensitiveMap<string, number>()
+  await withProgressBar({ tasks: options.assets }, async (asset, i, log) => {
+    for (const mesh of asset.meshes) {
+      const file = mesh.material
+      if (!file) {
+        continue
+      }
+      const doc = await readMtlFile(path.join(options.inputDir, file))
+      const materials = getSubMaterials(doc?.Material)
+      for (const material of materials) {
+        if (shaders.has(material.Shader)) {
+          shaders.set(material.Shader, shaders.get(material.Shader) + 1)
+        } else {
+          shaders.set(material.Shader, 1)
+        }
+        // if (material.Shader?.toLowerCase() === 'humanskin') {
+        //   console.log('humanskin', mesh.model)
+        // }
+        if (material.Shader?.toLowerCase() === 'fxmeshadvanced') {
+          console.log('fxmeshadvanced', mesh.model)
+        }
+      }
     }
   })
 
-  logger.info(
-    [
-      ``,
-      `       assets: ${logger.ansi.yellow(String(assetCount))}`,
-      `    converted: ${logger.ansi.yellow(String(fileCount))}`,
-      `       failed: ${
-        filesMissing ? logger.ansi.red(String(filesMissing)) : logger.ansi.green(String(filesMissing))
-      }`,
-      `         size: ${logger.ansi.yellow(String(Math.round(sizeInBytes / 1024 / 1024)))} MB`,
-      ``,
-    ].join('\n'),
-  )
-
-  await writeFile(path.join(outDir, 'stats.json'), JSON.stringify(stats, null, 2), {
-    encoding: 'utf-8',
-  })
+  console.log(Object.fromEntries(shaders.entries()))
 }

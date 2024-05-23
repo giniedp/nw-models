@@ -2,6 +2,37 @@ export interface MtlDocument {
   Material: MtlObject
 }
 
+export enum MtlFlags {
+  WIRE = 0x0001, // Use wire frame rendering for this material.
+  TWO_SIDED = 0x0002, // Use 2 Sided rendering for this material.
+  ADDITIVE = 0x0004, // Use Additive blending for this material.
+  DETAIL_DECAL = 0x0008, // UNUSED RESERVED FOR LEGACY REASONS
+  LIGHTING = 0x0010, // Should lighting be applied on this material.
+  NOSHADOW = 0x0020, // Material do not cast shadows.
+  ALWAYS_USED = 0x0040, // When set forces material to be export even if not explicitly used.
+  PURE_CHILD = 0x0080, // Not shared sub material, sub material unique to his parent multi material.
+  MULTI_SUBMTL = 0x0100, // This material is a multi sub material.
+  NOPHYSICALIZE = 0x0200, // Should not physicalize this material.
+  NODRAW = 0x0400, // Do not render this material.
+  NOPREVIEW = 0x0800, // Cannot preview the material.
+  NOTINSTANCED = 0x1000, // Do not instantiate this material.
+  COLLISION_PROXY = 0x2000, // This material is the collision proxy.
+  SCATTER = 0x4000, // Use scattering for this material
+  REQUIRE_FORWARD_RENDERING = 0x8000, // This material has to be rendered in forward rendering passes (alpha/additive blended)
+  NON_REMOVABLE = 0x10000, // Material with this flag once created are never removed from material manager (Used for decal materials, this flag should not be saved).
+  HIDEONBREAK = 0x20000, // Non-physicalized subsets with such materials will be removed after the object breaks
+  UIMATERIAL = 0x40000, // Used for UI in Editor. Don't need show it DB.
+  MTL_64BIT_SHADERGENMASK = 0x80000, // ShaderGen mask is remapped
+  RAYCAST_PROXY = 0x100000,
+  REQUIRE_NEAREST_CUBEMAP = 0x200000, // materials with alpha blending requires special processing for shadows
+  CONSOLE_MAT = 0x400000,
+  DELETE_PENDING = 0x800000, // Internal use only
+  BLEND_TERRAIN = 0x1000000,
+  IS_TERRAIN = 0x2000000, // indication to the loader - Terrain type
+  IS_SKY = 0x4000000, // indication to the loader - Sky type
+  FOG_VOLUME_SHADING_QUALITY_HIGH = 0x8000000, // high vertex shading quality behaves more accurately with fog volumes.
+}
+
 export interface MtlObject {
   AlphaTest?: number
   CloakAmount?: number
@@ -15,7 +46,7 @@ export interface MtlObject {
   MaterialLayers?: MtlLayers
   MaterialPropagationFlags?: MtlPropagationFlags
   MatTemplate?: string
-  MtlFlags: number
+  MtlFlags: MtlFlags
   Name: string
   Opacity?: number
   PublicParams?: MtlPublicParams | string

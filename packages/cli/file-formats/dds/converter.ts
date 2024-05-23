@@ -4,62 +4,6 @@ import * as fs from 'fs'
 import { sortBy } from 'lodash'
 import * as path from 'path'
 
-export interface CopyTextureOptions {
-  input: string
-  output: string
-  forceUpdate: boolean
-  unlink?: boolean
-}
-
-export async function copyTexture({ input, output, forceUpdate, unlink }: CopyTextureOptions): Promise<string> {
-  // TODO: do this somewhere else
-  // if (!fs.existsSync(input)) {
-  //   // some files are referenced as .tif but are actually .dds
-  //   // probably original artwork source is a .tif file and converted to .dds in the engine pipeline
-  //   input = replaceExtname(input, '.dds')
-  //   output = replaceExtname(output, '.dds')
-  // }
-
-  if (!fs.existsSync(input)) {
-    logger.warn(`missing ${input}`)
-    return null
-  }
-
-  const pngFile = replaceExtname(output, '.png')
-  if (fs.existsSync(pngFile) && !forceUpdate) {
-    logger.info(`skipped ${input} -> ${pngFile}`)
-    return pngFile
-  }
-
-  await copyDdsFile({
-    input: input,
-    output: output,
-  })
-
-  await ddsToPng({
-    isNormal: path.basename(input, path.extname(output)).endsWith('_ddna'),
-    ddsFile: output,
-    outDir: path.dirname(pngFile),
-  })
-  if (unlink && fs.existsSync(output) && fs.existsSync(pngFile)) {
-    fs.unlinkSync(output)
-  }
-
-  const aFile = replaceExtname(output, '.a' + path.extname(output))
-  if (fs.existsSync(aFile)) {
-    await ddsToPng({
-      isNormal: false,
-      ddsFile: aFile,
-      outDir: path.dirname(pngFile),
-    })
-    if (unlink && fs.existsSync(aFile)) {
-      fs.unlinkSync(aFile)
-    }
-  }
-
-  return pngFile
-}
-
 export interface DdsToPngOptions {
   isNormal: boolean
   ddsFile: string

@@ -19,7 +19,7 @@ program
     const inputDir = options.input
     const outputDir = options.output
 
-    await withProgressBar({ tasks: ['libs', 'coatgen', 'sharedassets', 'slices'] }, async (dir, i, log) => {
+    await withProgressBar({ tasks: ['slices'] }, async (dir, i, log) => {
       log(dir)
       await objectStreamConverter({
         input: path.join(inputDir, dir),

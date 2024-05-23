@@ -129,7 +129,7 @@
 //   }>
 // }
 // export const toktx = function (options: ToKtxOptions): Transform {
-  
+
 //   // options = {
 //   //   ...(options.mode === Mode.ETC1S ? ETC1S_DEFAULTS : UASTC_DEFAULTS),
 //   //   ...options,
@@ -211,7 +211,7 @@
 
 
 //   const image = texture.getImage();
-  
+
 //   // PREPARE: Create temporary in/out paths for the 'toktx' CLI tool, and determine
 //   // necessary command-line flags.
 

@@ -29,6 +29,7 @@ registerChunk<ChunkDataStream>({
     chunk.elementSize = r.readUInt32()
     r.seekRelative(8)
     chunk.data = r.slice(chunk.elementCount * chunk.elementSize)
+    chunk.debug = () => [chunk.streamTypeName]
     return chunk
   },
 })

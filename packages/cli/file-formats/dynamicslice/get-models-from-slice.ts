@@ -1,77 +1,77 @@
-import { ModelMeshAsset } from 'types'
-import { findInJson } from '../../tools/walk-json'
+import { mat4 } from '@gltf-transform/core'
+import { ModelMeshAsset } from '../../types'
 import {
-  LightConfiguration,
-  SliceComponent,
+  AZ__Entity,
+  isAZ__Entity,
   isGameTransformComponent,
-  isLightComponent,
   isMeshComponent,
   isMeshComponentRenderNode,
   isSkinnedMeshComponent,
   isSkinnedMeshComponentRenderNode,
   isSliceComponent,
 } from './types'
+import { getAssetPath, getTransformMatrix } from './utils'
 
-export async function getModelsFromSlice(obj: Object) {
+export async function getModelsFromSlice({ slice, catalog }: { slice: Object; catalog: Record<string, string> }) {
   const result: ModelMeshAsset[] = []
 
-  const entities = findInJson<SliceComponent>(obj, isSliceComponent)?.entities || []
+  if (!isAZ__Entity(slice)) {
+    return result
+  }
+
+  const entities = slice.components?.find(isSliceComponent)?.entities || []
   for (const entity of entities) {
-    let model: string = null
-    let material: string = null
-    let transform: number[] = []
-    let lights: LightConfiguration[] = []
-
-    for (const component of entity.components || []) {
-      if (isGameTransformComponent(component)) {
-        const world = component.m_worldtm.__value
-        if (world['rotation/scale']?.length) {
-          const [r0, r1, r2, r3, r4, r5, r6, r7, r8] = world['rotation/scale']
-          const [x, y, z] = world.translation
-          // prettier-ignore
-          transform = [
-            r0, r1, r2, 0,
-            r3, r4, r5, 0,
-            r6, r7, r8, 0,
-            x, y, z, 1
-          ]
-        }
-        continue
-      }
-      if (isMeshComponent(component)) {
-        const meshNode = component['static mesh render node']
-        if (isMeshComponentRenderNode(meshNode) && meshNode.visible) {
-          model = meshNode['static mesh']?.hint
-          material = meshNode['material override asset']?.hint
-        }
-        continue
-      }
-      if (isSkinnedMeshComponent(component)) {
-        const meshNode = component['skinned mesh render node']
-        if (isSkinnedMeshComponentRenderNode(meshNode) && meshNode.visible) {
-          model = meshNode['skinned mesh']?.hint
-          material = meshNode['material override asset']?.hint
-        }
-        continue
-      }
-      if (isLightComponent(component)) {
-        const config = component.lightconfiguration
-        if (config && config.visible) {
-          lights.push(JSON.parse(JSON.stringify(component.lightconfiguration)))
-        }
-      }
-    }
-
-    if (lights.length) {
-      // TODO
-    }
+    const model = await getModelFromSliceEntity(entity, catalog)
     if (model) {
-      result.push({
-        model,
-        material,
-        transform,
-      })
+      result.push(model)
     }
   }
   return result
+}
+
+export async function getModelFromSliceEntity(
+  entity: AZ__Entity,
+  catalog: Record<string, string>,
+): Promise<ModelMeshAsset> {
+  let model: string = null
+  let material: string = null
+  let transform: mat4 = null
+  let isStatic: boolean
+
+  for (const component of entity.components || []) {
+    // logger.debug(component.__type)
+    if (isGameTransformComponent(component)) {
+      transform = getTransformMatrix(component)
+      // logger.debug(component.m_parentid, transform)
+      continue
+    }
+    if (isMeshComponent(component)) {
+      const meshNode = component['static mesh render node']
+      if (isMeshComponentRenderNode(meshNode) && meshNode.visible) {
+        model = getAssetPath(catalog, meshNode['static mesh'])
+        material = getAssetPath(catalog, meshNode['material override asset'])
+        isStatic = true
+      }
+      continue
+    }
+    if (isSkinnedMeshComponent(component)) {
+      const meshNode = component['skinned mesh render node']
+      if (isSkinnedMeshComponentRenderNode(meshNode) && meshNode.visible) {
+        model = getAssetPath(catalog, meshNode['skinned mesh'])
+        material = getAssetPath(catalog, meshNode['material override asset'])
+      }
+      continue
+    }
+  }
+
+  if (!model) {
+    return null
+  }
+  return {
+    model,
+    material,
+    transform,
+    ignoreGeometry: false,
+    ignoreSkin: false,
+  }
 }

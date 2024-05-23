@@ -1,23 +1,26 @@
-import { Document, MathUtils, mat4, vec3, vec4 } from '@gltf-transform/core'
+import { Document } from '@gltf-transform/core'
+import { createTransform } from '@gltf-transform/functions'
 
 export function removeLod() {
-  return (doc: Document) => {
+  return createTransform('remove-lod', (doc: Document) => {
     const logger = doc.getLogger()
+    let count = 0
+    for (const node of doc.getRoot().listNodes()) {
+      if (!node.getMesh()) {
+        continue
+      }
 
-    const scene = doc.getRoot().getDefaultScene()
-    doc
-      .getRoot()
-      .listNodes()
-      .forEach((node) => {
-        if (!node.getMesh()) {
-          return
+      for (const child of node.listChildren()) {
+        const name = child.getName()
+        if (name.match(/\$lod\d+/)) {
+          child.detach()
+          count += 1
+          continue
         }
-        node.listChildren().forEach((child) => {
-          if (child.getName().match(/\$lod\d+/)) {
-            child.detach()
-            logger.debug(`removeLod: ${child.getName()}`)
-          }
-        })
-      })
-  }
+      }
+    }
+    if (count) {
+      logger.debug(`removed ${count} LODs`)
+    }
+  })
 }

@@ -1,30 +1,33 @@
+import * as fs from 'fs'
 import * as path from 'path'
 import { copyDdsFile, ddsToPng } from '../file-formats/dds/converter'
-import { gameFileSystem } from '../file-formats/game-fs'
-import { TransformContext } from '../types'
+import { resolveAbsoluteTexturePath } from '../file-formats/resolvers'
 import { logger } from '../utils/logger'
 
-export type ProcessTextureOptions = Pick<TransformContext, 'sourceRoot' | 'targetRoot' | 'update'> & {
+export type ProcessTextureOptions = {
+  inputDir: string
+  outputDir: string
   texture: string
+  update?: boolean
   texSize?: number
 }
 
-export async function processTexture({ sourceRoot, targetRoot, texture, texSize, update }: ProcessTextureOptions) {
-  const source = gameFileSystem(sourceRoot)
-  const target = gameFileSystem(targetRoot)
+export async function processTexture({ inputDir, outputDir, texture, texSize, update }: ProcessTextureOptions) {
+  // const source = gameFileSystem(inputDir)
+  // const target = gameFileSystem(outputDir)
 
-  const file = source.resolveTexturePath(texture)
-  if (!file) {
+  const inputFile = resolveAbsoluteTexturePath(texture, { inputDir })
+  if (!inputFile) {
     logger.warn(`texture not found`, texture)
     return
   }
-
-  if (target.existsSync(target.absolute(file)) && !update) {
+  const outputFile = path.join(outputDir, path.relative(inputDir, inputFile)).replaceAll(' ', '_')
+  if (fs.existsSync(outputFile) && !update) {
     return
   }
   const files = await copyDdsFile({
-    input: source.absolute(file),
-    output: target.absolute(file),
+    input: inputFile,
+    output: outputFile,
   })
 
   for (const file of files) {

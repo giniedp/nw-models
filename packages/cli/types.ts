@@ -1,272 +1,77 @@
-export interface TransformContext {
-  sourceRoot: string
-  transitRoot: string
-  targetRoot: string
-  update: boolean
+import { mat4 } from '@gltf-transform/core'
+import { z } from 'zod'
+
+export interface ModelAsset {
+  appearance?: Appearance
+  animations?: ModelAnimation[]
+  meshes: ModelMeshAsset[]
+  outFile: string
+}
+
+export interface ModelAnimation {
+  file: string
+  name: string
+  damageIds: string[]
+  actions: string[]
+  meta?: Record<string, any>
 }
 
 export interface ModelMeshAsset {
   model: string
   material: string
-  ignoreSkin?: boolean
-  hash?: string
-  transform?: number[]
-  lights?: unknown[]
+  ignoreSkin: boolean
+  ignoreGeometry: boolean
+  transform: mat4
 }
 
-export interface ModelAsset {
-  appearance?: Appearance
-  animations: string[]
-  meshes: ModelMeshAsset[]
-  outDir: string
-  outFile: string
-}
-export interface Housingitems {
-  AttributionId?: string
-  AudioCreated: string
-  AudioPickup: string
-  AudioPlace: string
-  AudioUse: string
-  BindOnPickup: boolean
-  ColorFamilies?: string
-  ConfirmBeforeUse: boolean
-  ConsumeOnUse: boolean
-  CraftingRecipe?: string
-  'DEV-FurnitureSet'?: string
-  DeathDropPercentage: number
-  Description: string
-  ExcludeFromGame: number
-  ForceRarity: number
-  HiResIconPath?: string
-  HouseItemID: string
-  HousingStatusEffect?: string
-  'HousingTag1 Placed'?: string
-  'HousingTag2 Points'?: string
-  'HousingTag3 Limiter'?: string
-  'HousingTag5 Buffs'?: string
-  HousingTags?: string
-  'HowToOptain (Primarily)'?: string
-  IconPath?: string
-  InteractionAnimationID?: string
-  IsEntitlement?: string
-  IsRepairable: boolean
-  IsSalvageable: boolean
-  ItemRarity?: string
-  ItemType: string
-  ItemTypeDisplayName?: string
-  MaxPotentialPoints: number
-  MaxStackSize: number
-  Name: string
-  Nonremovable: boolean
-  Notes?: string
-  PlacementGridDisplaySize?: string
-  PointModifier: number
-  PrefabPath: string
-  'Primary Color'?: string
-  RankingPoints: number
-  RankingPointsDuplicateLimit: number
-  RankingPointsNegativeLimit: number
-  RepairDustModifier: number
-  RepairRecipe?: string
-  SalvageGameEventID?: string
-  SalvageRecipe?: string
-  SalvageResources: boolean
-  StorageBonus: number
-  Tier: number
-  TradingCategory?: string
-  TradingFamily?: string
-  TradingGroup?: string
-  UIHousingCategory?: string
-  UiItemClass: string
-  Weight: number
-}
-export interface ItemDefinitionMaster {
-  AcquisitionNotificationId?: number
-  ArmorAppearanceF?: string
-  ArmorAppearanceM?: string
-  AttributionId?: string
-  AudioCreated?: string
-  AudioDestroyed?: string
-  AudioPickup?: string
-  AudioPlace?: string
-  AudioUse?: string
-  BindOnEquip?: number
-  BindOnPickup?: number | string
-  CanHavePerks?: number
-  CanReplaceGem?: number
-  CanRollPerkOnUpgrade?: number
-  ConfirmBeforeUse: number
-  ConfirmDestroy?: number
-  ConsumeOnUse: number
-  ContainerGS?: number
-  ContainerLevel?: number
-  CraftingRecipe?: string
-  DeathDropPercentage: number
-  Description?: string
-  DestroyOnBreak: number
-  Durability?: number
-  DurabilityDmgOnDeath?: number
-  EventId?: string
-  ExceedMinIndex?: number
-  ExclusivelyForWarCampTier?: number
-  ForceRarity?: number
-  GearScoreOverride?: number
-  GrantsHWMBump?: number
-  HeartgemRuneTooltipTitle?: string
-  HeartgemTooltipBackgroundImage?: string
-  HiResIconPath?: string
-  HideFromRewardOpenPopup?: number
-  HideInLootTicker?: number
-  HousingTags?: string
-  IconPath: null | string
-  IgnoreHWMScaling?: number | string
-  IgnoreNameChanges?: number
-  IgnoreParentColumns_DVT?: string
-  IngredientBonusPrimary?: number
-  IngredientBonusSecondary?: number
-  IngredientCategories?: string[]
-  IngredientGearScoreBaseBonus?: number
-  IngredientGearScoreMaxBonus?: number
-  IsMissionItem?: number
-  IsRepairable: number
-  IsRequiredItem?: number
-  IsSalvageable?: number
-  IsUniqueItem?: number
-  ItemClass?: string[]
-  ItemID: string
-  ItemStatsRef?: string
-  ItemType?: string
-  ItemTypeDisplayName?: string
-  MannequinTag?: string
-  MaxGearScore?: number
-  MaxStackSize: number
-  MinGearScore?: number
-  Name?: string
-  Nonremovable?: number
-  Notes?: string
-  ObtainableReleaseVersion?: string
-  ParentItemId_DVT?: string
-  Perk1?: string
-  Perk2?: string
-  Perk3?: string
-  Perk4?: string
-  Perk5?: string
-  PerkBucket1?: string
-  PerkBucket2?: string
-  PerkBucket3?: string
-  PerkBucket4?: string
-  PerkBucket5?: string
-  PrefabPath?: string
-  RepairDustModifier?: number
-  RepairRecipe?: string
-  RequiredLevel?: number
-  SalvageAchievement?: string
-  SalvageGameEventID?: string
-  SalvageGuaranteedPerkCount?: number
-  SalvageLootTags?: string
-  SalvageResources?: number
-  SoundTableID?: string
-  Tier: number
-  TradingCategory?: string
-  TradingFamily?: string
-  TradingGroup?: string
-  UiItemClass?: string
-  UseMagicAffix: number
-  UseMaterialAffix: number
-  UseTypeAffix: number
-  WarboardDepositStat?: string
-  WarboardGatherStat?: string
-  WeaponAccessory?: string
-  WeaponAppearanceOverride?: string
-  Weight: number
-}
+export const HousingTableSchema = z.array(
+  z.object({
+    HouseItemID: z.string(),
+    PrefabPath: z.string(),
+  }),
+)
+export type HousingTable = z.infer<typeof HousingTableSchema>
+export type Housingitems = HousingTable[number]
+
+export const CostumeChangesSchema = z.array(
+  z.object({
+    CostumeChangeId: z.string(),
+    CostumeChangeMesh: z.string(),
+  }),
+)
+export type CostumeChangesTable = z.infer<typeof CostumeChangesSchema>
+export type CostumeChanges = CostumeChangesTable[number]
+
+export const NpcSchema = z.array(
+  z.object({
+    VariantID: z.string(),
+    CharacterDefinition: z.optional(z.string()),
+  }),
+)
+export type NpcTable = z.infer<typeof NpcSchema>
+export type Npc = NpcTable[number]
+
+export const MountsTableSchema = z.array(
+  z.object({
+    MountId: z.string(),
+    Mesh: z.optional(z.string()),
+    Material: z.optional(z.string()),
+    MountType: z.optional(z.string()),
+  }),
+)
+export type MountsTable = z.infer<typeof MountsTableSchema>
+export type Mounts = MountsTable[number] & AppearanceMaskDefinition
+
 export interface ItemdefinitionsWeapons {
-  ABABleed: number
-  ABACurse: number
-  ABADisease: number
-  ABAFrostbite: number
-  ABAPoison: number
-  AmmoMesh?: string
-  AmmoType?: string
-  AnimDbPath?: string
-  Appearance?: string
-  ArmorRatingScaleFactor: number
-  AttachedSpellData?: string
-  AttackGameEventID?: string
-  AudioPickup?: string
-  AudioPlace?: string
-  AutoReloadAmmoSeconds: number
-  BLAArcane: number
-  BLACorruption: number
-  BLAFire: number
-  BLAIce: number
-  BLALightning: number
-  BLANature: number
-  BLASiege: number
-  BLASlash: number
-  BLAStandard?: string
-  BLAStrike: number
-  BLAThrust: number
-  BaseAccuracy: number
-  BaseDamage: number
-  BaseStaggerDamage: number
-  BlockStability: number
-  BlockStaminaDamage: number
-  CanBlockRanged: boolean
-  CritChance: number
-  CritDamageMultiplier: number
-  CritStaggerDamageMultiplier: number
-  'DEV Prio': number
-  DamageStatMultiplier?: string
-  DamageTableRow?: string
-  DeflectionRating: number
-  ElementalArmorSetScaleFactor: number
-  EquipType?: string
-  FemaleAppearance?: string
-  FireJoint?: string
-  GatheringEfficiency: number
-  GatheringMultiplier: number
-  GatheringTypes?: string
-  HideMainWeaponMeshWhileSheathed: boolean
-  IconPath?: string
-  IsShieldCompatible: boolean
-  ManaCostId?: string
-  MannequinTag?: string
-  MaterialOverride1?: string
-  MaxGatherEFF: number
-  MaxLoadedAmmo: number
-  MaxStackSize: number
+  WeaponID: string
   MeshOverride?: string
-  MinGatherEFF: number
-  OffHandMannequinTag?: string
-  PhysicalArmorSetScaleFactor: number
-  'Primary Hand'?: string
-  PrimaryUse?: string
-  RangedAttackProfile?: string
-  RangedBlockHealthDamageScaling: number
-  RangedBlockStaminaDamageScaling: number
-  RequiredDexterity: number
-  RequiredFocus: number
-  RequiredIntelligence: number
-  RequiredStrength: number
-  ReticleName?: string
-  ReticleRayCastDistance: number
-  ReticleTargetName?: string
-  ScalingDexterity: number
-  ScalingFocus: number
-  ScalingIntelligence: number
-  ScalingStrength: number
   SkinOverride1?: string
   SkinOverride2?: string
-  SoundTableID?: string
-  TierNumber: number
-  TooltipAlternateAttackData?: string
-  TooltipPrimaryAttackData?: string
-  Weaknesses?: string
-  WeaponEffectId?: string
-  WeaponID: string
-  WeaponMasteryCategoryId?: string
-  WeightOverride: number
+  MaterialOverride1?: string
+
+  AnimDbPath?: string
+  Appearance?: string
+  FemaleAppearance?: string
 }
 export interface AppearanceMaskDefinition {
   MaskRColor: string
@@ -291,40 +96,9 @@ export interface AppearanceMaskDefinition {
   ADyeSlotDisabled?: string
 }
 
-export interface WeaponAppearanceDefinition extends AppearanceMaskDefinition {
-  WeaponAppearanceID: string
-  Appearance?: string
-  FemaleAppearance?: string
-  MeshOverride?: string
-  SkinOverride1?: string
-  SkinOverride2?: string
-  MaterialOverride1?: string
-
-  RDyeSlotDisabled?: string
-  GDyeSlotDisabled?: string
-  BDyeSlotDisabled?: string
-  ADyeSlotDisabled?: string
-}
-
-export interface CostumeChanges {
-  CostumeChangeId: string
-  CostumeChangeMesh: string
-}
-
-export interface Npc {
-  NPCId: string
-  VariantID: string
-  CharacterDefinition: string
-}
-
-export interface Mounts extends AppearanceMaskDefinition {
-  MountId: string
-  Mesh: string
-  Material: string
-}
-
 export interface ItemAppearanceDefinition extends AppearanceMaskDefinition {
   ItemID: string
+  AppearanceName: string
   HairChop: string
   HideHair: number
   HideFacialHair: number
@@ -362,6 +136,21 @@ export interface ItemAppearanceDefinition extends AppearanceMaskDefinition {
   LeftSleeveOnlyChestSkin: string
   RightSleeveOnlyChestSkin: string
   AppearanceCDF: string
+}
+
+export interface WeaponAppearanceDefinition extends AppearanceMaskDefinition {
+  WeaponAppearanceID: string
+  Appearance?: string
+  FemaleAppearance?: string
+  MeshOverride?: string
+  SkinOverride1?: string
+  SkinOverride2?: string
+  MaterialOverride1?: string
+
+  RDyeSlotDisabled?: string
+  GDyeSlotDisabled?: string
+  BDyeSlotDisabled?: string
+  ADyeSlotDisabled?: string
 }
 
 export interface InstrumentAppearance extends AppearanceMaskDefinition {

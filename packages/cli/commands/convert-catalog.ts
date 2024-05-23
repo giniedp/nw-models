@@ -17,7 +17,7 @@ program
     logger.debug('convert-asset-catalog', JSON.stringify(options, null, 2))
 
     const inputFile = path.join(options.input, 'assetcatalog.catalog')
-    const ouputFile = path.join(options.output, 'assetcatalog.catalog.json')
+    const ouputFile = path.join(options.output, 'assetcatalog.json')
     const catalog = await convertAssetCatalog(inputFile)
     await writeFile(ouputFile, JSON.stringify(catalog, null, 2), {
       createDir: true,
@@ -27,7 +27,8 @@ program
 
 async function convertAssetCatalog(file: string) {
   const data = await fs.promises.readFile(file)
-  const reader = new BinaryReader(data.buffer)
+
+  const reader = new BinaryReader(data.buffer as any)
 
   const signature = reader.readString(4)
   const version = reader.readUInt32()

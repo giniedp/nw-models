@@ -59,7 +59,9 @@ registerChunk<ChunkMesh>({
     chunk.texMappingDensity = r.readFloat32()
     chunk.geometricMeanFaceArea = r.readFloat32()
     chunk.reserved = r.readInt32Array(30)
-
+    chunk.debug = () => {
+      return ['subsetId', chunk.subsetsChunkId, 'vc', chunk.vertexCount, 'ic', chunk.indexCount, 'sc', chunk.subsetCount]
+    }
     return chunk
   },
 })

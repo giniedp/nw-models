@@ -1,30 +1,52 @@
 import path from 'path'
-import { getModelsFromCdf } from '../file-formats/cdf'
-import { Npc } from '../types'
-import { logger } from '../utils/logger'
-import { AssetCollector } from './asset-collector'
+import { resolveCDFAsset } from '../file-formats/cdf'
+import { Npc, NpcSchema } from '../types'
+import { logger, readJSONFile } from '../utils'
+import { AssetCollector } from './collector'
 
-export async function collectNpcs(items: Npc[], collector: AssetCollector) {
-  const outDir = 'npcs'
-  for (const item of items) {
-    if (item.CharacterDefinition && path.extname(item.CharacterDefinition) === '.cdf') {
-      await getModelsFromCdf(collector.gfs.absolute(item.CharacterDefinition))
-        .then((meshes) => {
-          return collector.addAsset({
-            meshes: meshes.map(({ model, material }) => {
-              return {
-                model,
-                material: material,
-                hash: null,
-              }
-            }),
-            outDir: outDir,
-            outFile: [item.VariantID, 'CharacterDefinition'].join('-'),
-          })
-        })
-        .catch(() => {
-          logger.warn(`failed to read`, item.CharacterDefinition)
-        })
+export interface CollectNpcsOptions {
+  filter?: (item: Npc) => boolean
+}
+
+export async function collectNpcs(collector: AssetCollector, options: CollectNpcsOptions) {
+  const table = await Promise.all(
+    // prettier-ignore
+    [
+      'javelindata_variations_npcs.json',
+      'javelindata_variations_npcs_walkaway.json'
+    ].map((it) =>
+      readJSONFile(path.join(collector.tablesDir, it), NpcSchema),
+    ),
+  ).then((it) => it.flat())
+
+  for (const item of table) {
+    const modelFile = item.CharacterDefinition
+    if (!modelFile || path.extname(modelFile) !== '.cdf') {
+      continue
     }
+    if (options.filter && !options.filter(item as any)) {
+      continue
+    }
+    const asset = await resolveCDFAsset(modelFile, { inputDir: collector.inputDir }).catch((err) => {
+      logger.error(err)
+      logger.warn(`failed to read`, modelFile)
+    })
+    if (!asset) {
+      continue
+    }
+
+    await collector.collect({
+      meshes: asset.meshes.map(({ model, material }) => {
+        return {
+          model,
+          material,
+          ignoreGeometry: false,
+          ignoreSkin: false,
+          transform: null,
+        }
+      }),
+      // keep in original folder structure
+      outFile: modelFile.toLowerCase(),
+    })
   }
 }

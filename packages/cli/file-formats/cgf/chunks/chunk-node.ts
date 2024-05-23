@@ -11,7 +11,7 @@ export interface ChunkNode extends Chunk {
   positionControllerId: number
   rotationControllerId: number
   scaleControllerId: number
-  propertyStringLength: number
+  propertyString: string
 }
 
 export function isChunkNode(value: Chunk): value is ChunkNode {
@@ -46,15 +46,25 @@ registerChunk<ChunkNode>({
     chunk.numChildren = r.readInt32()
     chunk.materialId = r.readInt32()
     r.seekRelative(4)
-    chunk.transform = r.readArray(16, () => r.readFloat32())
-    r.seekRelative(3 * 4)
-    r.seekRelative(4 * 4)
-    r.seekRelative(3 * 4)
+    chunk.transform = r.readFloat32Array(16)
+    chunk.transform[12] *= 0.01
+    chunk.transform[13] *= 0.01
+    chunk.transform[14] *= 0.01
+    chunk.transform[15] = 1
+    r.readFloat32Array(3)
+    r.readFloat32Array(4)
+    r.readFloat32Array(3)
     chunk.positionControllerId = r.readInt32()
     chunk.rotationControllerId = r.readInt32()
     chunk.scaleControllerId = r.readInt32()
-    chunk.propertyStringLength = r.readInt32()
+    const propertyStringLength = r.readInt32()
+    if (propertyStringLength) {
+      chunk.propertyString = r.readStringNT(propertyStringLength)
+    }
 
+    chunk.debug = () => {
+      return ['parent', chunk.parentId, 'object', chunk.objectId, 'material', chunk.materialId, chunk.name, ...chunk.transform]
+    }
     return chunk
   },
 })

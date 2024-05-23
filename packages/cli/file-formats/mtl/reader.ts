@@ -9,7 +9,7 @@ export async function loadMtlFile(mtlFile: string): Promise<MtlObject[]> {
     return null
   }
   const doc = await readMtlFile(mtlFile)
-  return flattenMaterials(doc?.Material)
+  return getSubMaterials(doc?.Material)
 }
 
 export async function readMtlFile(file: string): Promise<MtlDocument> {
@@ -30,7 +30,7 @@ export function parseMtlFile(data: string): any {
   return parser.parse(data)
 }
 
-export function flattenMaterials(mtl: MtlObject): MtlObject[] {
+export function getSubMaterials(mtl: MtlObject): MtlObject[] {
   if (!mtl) {
     return []
   }

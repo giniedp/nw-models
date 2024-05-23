@@ -1,13 +1,6 @@
 import { MtlObject, MtlTexture } from './types'
 
-export function getMaterial(list: MtlObject[], name: string) {
-  if (list?.length === 1) {
-    return list[0]
-  }
-  return list.find((it) => it.Name.toLowerCase() === name.toLowerCase())
-}
-
-export function getMaterialTextures(mtl: MtlObject): MtlTexture[] {
+export function getMtlTextures(mtl: MtlObject): MtlTexture[] {
   if (!mtl || !mtl.Textures) {
     return []
   }
@@ -24,7 +17,7 @@ export function getMaterialTextures(mtl: MtlObject): MtlTexture[] {
 }
 
 export function getMaterialParamNum(mtl: MtlObject, key: keyof MtlObject) {
-  if (!(key in mtl)) {
+  if (!mtl || !(key in mtl)) {
     return null
   }
   const factor = Number(mtl[key])
@@ -35,7 +28,7 @@ export function getMaterialParamNum(mtl: MtlObject, key: keyof MtlObject) {
 }
 
 export function getMaterialParamVec(mtl: MtlObject, key: keyof MtlObject) {
-  if (!(key in mtl) || !mtl[key]) {
+  if (!mtl || !(key in mtl) || !mtl[key]) {
     return null
   }
   const factor = String(mtl[key])

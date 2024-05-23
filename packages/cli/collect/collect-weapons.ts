@@ -1,32 +1,45 @@
+import path from 'path'
 import { ItemdefinitionsWeapons } from '../types'
-import { AssetCollector } from './asset-collector'
+import { readJSONFile } from '../utils'
+import { AssetCollector } from './collector'
 
-export async function collectWeapons(items: ItemdefinitionsWeapons[], collector: AssetCollector) {
-  const outDir = 'weapons'
-  for (const item of items) {
-    await collector.addAsset({
+export interface CollectWeaponsOptions {
+  filter?: (item: ItemdefinitionsWeapons) => boolean
+}
+
+export async function collectWeapons(collector: AssetCollector, options: CollectWeaponsOptions) {
+  const table = await readJSONFile<ItemdefinitionsWeapons[]>(
+    path.join(collector.tablesDir, 'javelindata_itemdefinitions_weapons.json'),
+  )
+  for (const item of table) {
+    if (options.filter && !options.filter(item)) {
+      continue
+    }
+    await collector.collect({
       appearance: null,
       meshes: [
         {
           model: item.SkinOverride1,
           material: item.MaterialOverride1,
-          hash: null,
+          ignoreGeometry: false,
+          ignoreSkin: false,
+          transform: null,
         },
       ],
-      outDir: outDir,
-      outFile: [item.WeaponID, 'SkinOverride1'].join('-'),
+      outFile: path.join('weapon', [item.WeaponID, 'SkinOverride1'].join('-')),
     })
-    await collector.addAsset({
+    await collector.collect({
       appearance: null,
       meshes: [
         {
           model: item.SkinOverride2,
           material: item.MaterialOverride1,
-          hash: null,
+          ignoreGeometry: false,
+          ignoreSkin: false,
+          transform: null,
         },
       ],
-      outDir: outDir,
-      outFile: [item.WeaponID, 'SkinOverride2'].join('-'),
+      outFile: path.join('weapon', [item.WeaponID, 'SkinOverride2'].join('-')),
     })
   }
 }

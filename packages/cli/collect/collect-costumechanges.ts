@@ -1,30 +1,47 @@
 import path from 'path'
-import { getModelsFromCdf } from '../file-formats/cdf'
-import { CostumeChanges } from '../types'
-import { logger } from '../utils/logger'
-import { AssetCollector } from './asset-collector'
+import { resolveCDFAsset } from '../file-formats/cdf'
+import { CostumeChanges, CostumeChangesSchema } from '../types'
+import { logger, readJSONFile } from '../utils'
+import { AssetCollector } from './collector'
 
-export async function collectCostumeChanges(items: CostumeChanges[], collector: AssetCollector) {
-  const outDir = 'costumechanges'
-  for (const item of items) {
-    if (item.CostumeChangeMesh && path.extname(item.CostumeChangeMesh) === '.cdf') {
-      await getModelsFromCdf(collector.gfs.absolute(item.CostumeChangeMesh))
-        .then((meshes) => {
-          return collector.addAsset({
-            meshes: meshes.map(({ model, material }) => {
-              return {
-                model,
-                material,
-                hash: null,
-              }
-            }),
-            outDir: outDir,
-            outFile: [item.CostumeChangeId, 'Mesh'].join('-'),
-          })
-        })
-        .catch(() => {
-          logger.warn(`failed to read`, item.CostumeChangeMesh)
-        })
+export interface CollectCostumeChangesOptions {
+  filter?: (item: CostumeChanges) => boolean
+}
+
+export async function collectCostumeChanges(collector: AssetCollector, options: CollectCostumeChangesOptions) {
+  const table = await readJSONFile(
+    path.join(collector.tablesDir, 'costumechanges', 'javelindata_costumechanges.json'),
+    CostumeChangesSchema,
+  )
+
+  for (const item of table) {
+    const modelFile = item.CostumeChangeMesh
+    if (!modelFile || path.extname(modelFile) !== '.cdf') {
+      continue
     }
+    if (options.filter && !options.filter(item as any)) {
+      continue
+    }
+    const asset = await resolveCDFAsset(modelFile, { inputDir: collector.inputDir }).catch((err) => {
+      logger.error(err)
+      logger.warn(`failed to read`, modelFile)
+    })
+    if (!asset) {
+      continue
+    }
+
+    await collector.collect({
+      animations: [],
+      meshes: asset.meshes.map(({ model, material }) => {
+        return {
+          model,
+          material,
+          ignoreGeometry: false,
+          ignoreSkin: false,
+          transform: null,
+        }
+      }),
+      outFile: path.join('costumechanges', item.CostumeChangeId.toLowerCase()) ,
+    })
   }
 }

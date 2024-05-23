@@ -33,6 +33,7 @@ registerChunk<ChunkExportFlags>({
     chunk.rcVersionString = r.readStringNT(16)
     chunk.assetAuthorTool = r.readInt32()
     chunk.authorToolVersion = r.readInt32()
+    chunk.debug = () => [chunk.flags, chunk.rcVersion, chunk.rcVersionString, chunk.assetAuthorTool, chunk.authorToolVersion]
     return chunk
   },
 })

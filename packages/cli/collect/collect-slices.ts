@@ -1,80 +1,118 @@
+import { mat4 } from '@gltf-transform/core'
 import fs from 'fs'
 import path from 'path'
-import { getModelsFromCdf } from '../file-formats/cdf'
-import { getModelsFromSlice } from '../file-formats/dynamicslice'
+import { getAssetPath, getModelFromSliceEntity, walkSlice } from '../file-formats/dynamicslice'
+import { AZ__Entity, isPrefabSpawnerComponent } from '../file-formats/dynamicslice/types'
 import { ModelMeshAsset } from '../types'
-import { glob, readJsonFile, replaceExtname } from '../utils/file-utils'
-import { logger } from '../utils/logger'
-import { AssetCollector } from './asset-collector'
+import { logger, replaceExtname } from '../utils'
+import { AssetCollector } from './collector'
 
-export async function collectSlices(slicesDir: string, items: string[], collector: AssetCollector) {
-  const outDir = 'slices'
-  items = await glob(items.map((it) => path.join(slicesDir, it)))
-  for (const sliceFile of items) {
-    await collectFromSlice({
-      slicesDir,
-      sliceFile,
-      outDir,
-      collector,
+export interface CollectSlicesOptions {
+  files: string[]
+  convertDir: string
+}
+
+export async function collectSlices(collector: AssetCollector, options: CollectSlicesOptions) {
+  const catalog = collector.catalog
+  const inputDir = collector.inputDir
+  const convertDir = options.convertDir
+  for (const file of options.files) {
+    const result: ModelMeshAsset[] = []
+    const sliceFile = path.resolve(convertDir, file)
+    await walkSlice(sliceFile, async (entry, transform, addSlice) => {
+      const meshes = await getMeshesFromEntity(entry.entity, {
+        inputDir,
+        catalog,
+        transform: transform,
+      })
+      result.push(...meshes)
+      if (meshes.length > 0) {
+        console.log('found meshes', meshes.length)
+      }
+      const prefab = entry.entity.components.find(isPrefabSpawnerComponent)
+      if (!prefab || !prefab.m_sliceasset) {
+        return
+      }
+      let assetPath = getAssetPath(collector.catalog, prefab.m_sliceasset)
+      if (!assetPath) {
+        return
+      }
+      if (assetPath.endsWith('.slice.meta')) {
+        assetPath = assetPath.slice(0, -11) + '.dynamicslice'
+      }
+      if (!assetPath.endsWith('.dynamicslice')) {
+        return
+      }
+
+      assetPath = path.resolve(convertDir, assetPath + '.json')
+      if (fs.existsSync(assetPath)) {
+        addSlice(assetPath)
+      }
+    })
+
+    await collector.collect({
+      animations: null,
+      appearance: null,
+      meshes: result,
+      // removes .json extension
+      outFile: replaceExtname(path.relative(convertDir, sliceFile), ''),
     })
   }
 }
 
-export async function collectFromSlice({
-  slicesDir,
-  sliceFile,
-  outDir,
-  collector,
-}: {
-  slicesDir: string
-  sliceFile: string
-  outDir: string
-  collector: AssetCollector
-}) {
-  if (!fs.existsSync(sliceFile)) {
-    logger.warn('missing slice', sliceFile)
-    return
-  }
-  const meshes = await getMeshesFromSlice(sliceFile, collector).catch((err) => {
-    logger.error(err)
-    return []
-  })
-  if (!meshes.length) {
-    logger.warn('missing meshes', sliceFile)
-    return
-  }
-  await collector.addAsset({
-    appearance: null,
-    meshes: meshes,
-    outDir: outDir,
-    outFile: path.relative(slicesDir, replaceExtname(sliceFile, '')),
-  })
-}
-
-async function getMeshesFromSlice(sliceFile: string, collector: AssetCollector) {
-  const sliceJSON = await readJsonFile(sliceFile)
-  const meshes = await getModelsFromSlice(sliceJSON)
+async function getMeshesFromEntity(
+  entity: AZ__Entity,
+  options: {
+    inputDir: string
+    catalog: Record<string, string>
+    transform: number[]
+  },
+) {
   const result: ModelMeshAsset[] = []
-  for (let { model, material, transform } of meshes) {
-    if (!model) {
-      continue
-    }
-    if (path.extname(model) === '.cdf') {
-      const cdfMeshes = await getModelsFromCdf(path.join(collector.sourceRoot, model))
-      for (const mesh of cdfMeshes) {
-        result.push({
-          model: mesh.model,
-          material: mesh.material,
-          transform: transform, // TODO: cdf may also define a transform
-        })
-      }
-    } else {
-      result.push({
-        model,
-        material: material,
-        transform,
-      })
-    }
+  const asset = await getModelFromSliceEntity(entity, options.catalog)
+  if (!asset) {
+    return result
   }
+
+  const extname = path.extname(asset.model).toLowerCase()
+  if (extname === '.cgf' || extname === '.skin') {
+    let transform = options.transform
+    // if (transform && asset.transform) {
+    //   transform = mat4Multiply(transform as any, asset.transform as any)
+    // } else {
+    //   transform = asset.transform
+    // }
+    result.push({
+      ...asset,
+      transform: transform as mat4,
+    })
+    return result
+  }
+
+  // if (extname === '.cdf') {
+  //   const cdfMeshes = await getModelsFromCdf(path.resolve(options.inputDir, asset.model)).catch((err) => {
+  //     logger.error(err)
+  //     return []
+  //   })
+  //   let transform = options.transform
+  //   if (transform && asset.transform) {
+  //     transform = mat4Multiply(transform as any, asset.transform as any)
+  //   } else {
+  //     transform = asset.transform
+  //   }
+
+  //   for (const mesh of cdfMeshes) {
+  //     result.push({
+  //       model: mesh.model,
+  //       material: mesh.material,
+  //       transform: transform as mat4,
+  //       ignoreGeometry: false,
+  //       ignoreSkin: true,
+  //     })
+  //   }
+  //   return result
+  // }
+
+  logger.warn('unknown model', asset.model)
   return result
 }

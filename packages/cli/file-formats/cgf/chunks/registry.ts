@@ -1,5 +1,7 @@
+import { chunk, partition } from 'lodash'
 import { BinaryReader } from '../binary-reader'
 import { Chunk, ChunkHeader, ChunkType } from '../types'
+import { logger } from '../../../utils'
 
 export type ChunkReaderFn<T extends Chunk = Chunk> = (reader: BinaryReader, output: T) => Promise<T>
 export interface ChunkRegisty<T extends Chunk = Chunk> {
@@ -23,6 +25,6 @@ export async function readChunk(header: ChunkHeader, reader: BinaryReader) {
   const type = `0x${header.type.toString(16)}`
   const typeName = ChunkType[header.type] || header.type
   const version = `0x${header.version.toString(16)}`
-  console.warn(`Reader for chunk ${type} | ${typeName} with version ${version} not found`)
+  logger.warn(`Reader for chunk ${type} | ${typeName} with version ${version} not found`)
   return null
 }

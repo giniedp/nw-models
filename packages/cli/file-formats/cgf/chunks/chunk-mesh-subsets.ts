@@ -47,6 +47,8 @@ registerChunk<ChunkMeshSubsets>({
     const count = r.readInt32()
     r.seekRelative(8)
     chunk.subsets = r.readArray(count, readMeshSubset)
+
+    chunk.debug = () => chunk.subsets.map((it) => it.materialId)
     return chunk
   },
 })

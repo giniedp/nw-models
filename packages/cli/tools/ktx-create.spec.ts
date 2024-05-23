@@ -1,12 +1,11 @@
-import * as fs from 'fs'
-import * as path from 'path'
 import assert from 'assert/strict'
-import { afterEach, beforeEach, describe, it } from 'node:test'
+import * as fs from 'fs'
+import { describe, it } from 'node:test'
+import * as path from 'path'
+import { replaceExtname } from '../utils'
 import { ktxCreate } from './ktx-create'
-import { replaceExtname } from 'utils'
 
 describe('tools / ktx create', () => {
-
   const sampleDir = path.join(__dirname, 'sample')
   const tmpDir = path.join(__dirname, 'tmp')
   const DIFF = 'male_masterofceremonies_diff.png'
@@ -24,7 +23,9 @@ describe('tools / ktx create', () => {
         format: 'R8G8B8_UNORM',
         input: input,
         output: output,
-      }).then(() => 'ok').catch((err) => err)
+      })
+        .then(() => 'ok')
+        .catch((err) => err)
 
       assert.equal(res, 'ok')
       assert.equal(fs.existsSync(input), true)
@@ -45,5 +46,4 @@ describe('tools / ktx create', () => {
   //     assert.equal(Buffer.isBuffer(res), true)
   //   })
   // })
-
 })
