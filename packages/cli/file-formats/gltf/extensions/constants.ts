@@ -1,1 +1,1 @@
-export const EXT_NEW_WORLD_APPEARANCE = 'EXT_new_world_appearance'
+export const EXT_NW_OVERLAY_MASK = 'EXT_nw_overlay_mask'

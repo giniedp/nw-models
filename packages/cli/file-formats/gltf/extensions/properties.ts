@@ -1,5 +1,5 @@
 import { ExtensionProperty, IProperty, Nullable, PropertyType, Texture, TextureChannel, TextureInfo } from '@gltf-transform/core'
-import { EXT_NEW_WORLD_APPEARANCE } from './constants'
+import { EXT_NW_OVERLAY_MASK } from './constants'
 
 interface INwAppearance extends IProperty {
   data: any
@@ -8,13 +8,13 @@ interface INwAppearance extends IProperty {
 }
 
 export class NwAppearanceProperties extends ExtensionProperty<INwAppearance> {
-  public static EXTENSION_NAME = EXT_NEW_WORLD_APPEARANCE
-  public declare extensionName: typeof EXT_NEW_WORLD_APPEARANCE
+  public static EXTENSION_NAME = EXT_NW_OVERLAY_MASK
+  public declare extensionName: typeof EXT_NW_OVERLAY_MASK
   public declare propertyType: 'appearance'
   public declare parentTypes: [PropertyType.MATERIAL]
 
   protected init(): void {
-    this.extensionName = EXT_NEW_WORLD_APPEARANCE
+    this.extensionName = EXT_NW_OVERLAY_MASK
     this.propertyType = 'appearance'
     this.parentTypes = [PropertyType.MATERIAL]
   }

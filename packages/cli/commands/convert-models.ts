@@ -196,6 +196,9 @@ program
 
     if (opts.appearance) {
       const ids = idsFromParam(opts.appearance)
+      await collectWeapons(collector, {
+        filter: (item) => !ids || ids.includes(item.WeaponID.toLowerCase()),
+      })
       await collectWeaponAppearances(collector, {
         filter: (item) => !ids || ids.includes(item.WeaponAppearanceID.toLowerCase()),
       })
@@ -205,9 +208,6 @@ program
       await collectItemAppearances(collector, {
         filter: (item) =>
           !ids || ids.includes(item.ItemID.toLowerCase()) || ids.includes(item.AppearanceName?.toLowerCase()),
-      })
-      await collectWeapons(collector, {
-        filter: (item) => !ids || ids.includes(item.WeaponID.toLowerCase()),
       })
     }
 
@@ -415,6 +415,7 @@ async function writeAssets({ assets, outputDir }: { assets: ModelAsset[]; output
 
 async function debugCollection(options: ConvertModelsOptions) {
   const shaders = new CaseInsensitiveMap<string, number>()
+  const features = new CaseInsensitiveMap<string, number>()
   await withProgressBar({ tasks: options.assets }, async (asset, i, log) => {
     for (const mesh of asset.meshes) {
       const file = mesh.material
@@ -429,6 +430,14 @@ async function debugCollection(options: ConvertModelsOptions) {
         } else {
           shaders.set(material.Shader, 1)
         }
+        const ftr = (material.StringGenMask || '').split('%').filter((it) => it)
+        for (const it of ftr) {
+          if (features.has(it)) {
+            features.set(it, features.get(it) + 1)
+          } else {
+            features.set(it, 1)
+          }
+        }
         // if (material.Shader?.toLowerCase() === 'humanskin') {
         //   console.log('humanskin', mesh.model)
         // }
@@ -440,4 +449,5 @@ async function debugCollection(options: ConvertModelsOptions) {
   })
 
   console.log(Object.fromEntries(shaders.entries()))
+  console.log(Object.fromEntries(features.entries()))
 }

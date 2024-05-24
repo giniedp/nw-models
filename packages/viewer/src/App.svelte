@@ -36,11 +36,11 @@
       onSelectionChanged: ({ api }) => {
         const data = api.getSelectedRows()[0]
         if (data) {
-          bjsViewer.show(modelPath(data))
-          pcViewer.show(modelPath(data))
+          bjsViewer?.show(modelPath(data))
+          pcViewer?.show(modelPath(data))
         } else {
-          bjsViewer.close()
-          pcViewer.close()
+          bjsViewer?.close()
+          pcViewer?.close()
         }
       },
     })
@@ -96,42 +96,13 @@
       width: 100,
       valueFormatter: ({ value }) => `${((value || 0) / 1024 / 1024).toFixed(2)}Mb`,
     },
-    // {
-    //   headerName: 'Shader',
-    //   field: '_shaders',
-    //   filter: true,
-    //   resizable: true,
-    //   floatingFilter: true,
-    //   width: 150,
-    //   cellRenderer: ({ value }: ICellRendererParams) => {
-    //     const tags = (value || '')
-    //       .map((it: unknown) => `<span class="badge badge-xs badge-primary">${it}</span>`)
-    //       .join('')
-    //     return `<div class="flex flex-row flex-wrap gap-1 p-1">${tags}</div>`
-    //   },
-    // },
-    // {
-    //   headerName: 'Textures',
-    //   field: '_textures',
-    //   filter: true,
-    //   resizable: true,
-    //   floatingFilter: true,
-    //   width: 300,
-    //   cellRenderer: ({ value }: ICellRendererParams) => {
-    //     const tags = (value || '')
-    //       .map((it: unknown) => `<span class="badge badge-xs badge-primary">${it}</span>`)
-    //       .join('')
-    //     return `<div class="flex flex-row flex-wrap gap-1 p-1 h-full">${tags}</div>`
-    //   },
-    // },
   ]
 </script>
 
 <main class="flex flex-row absolute inset-0">
   <div bind:this={gridEl} class="ag-theme-alpine-dark flex-1" />
-  <div class="flex-1 grid grid-cols-1 grid-rows-2 overflow-hidden">
+  <div class="flex-1 grid grid-cols-1 overflow-hidden">
     <Viewer bind:this={bjsViewer} playcanvas={false} />
-    <Viewer bind:this={pcViewer} playcanvas={true} />
   </div>
 </main>
 

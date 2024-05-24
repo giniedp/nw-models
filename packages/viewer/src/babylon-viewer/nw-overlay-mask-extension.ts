@@ -2,13 +2,13 @@ import 'babylonjs'
 import 'babylonjs-loaders'
 import { BABYLON, GLTF2 } from 'babylonjs-viewer'
 
-const NAME = 'DyeLoaderExtension'
+const NAME = 'NwOverlayMaskExtension'
 
 GLTF2.GLTFLoader.RegisterExtension(NAME, (loader) => {
-  return new DyeLoaderExtension(loader)
+  return new NwOverlayMaskExtension(loader)
 })
 
-export class DyeLoaderExtension implements GLTF2.IGLTFLoaderExtension {
+export class NwOverlayMaskExtension implements GLTF2.IGLTFLoaderExtension {
   public static getMaskTexture(object: any): BABYLON.BaseTexture | null {
     return object?.maskTexture
   }
@@ -43,7 +43,7 @@ export class DyeLoaderExtension implements GLTF2.IGLTFLoaderExtension {
     assign: (babylonMaterial: BABYLON.Material) => void,
   ): Promise<BABYLON.Material> {
 
-    const ext = material?.extensions?.EXT_new_world_appearance
+    const ext = material?.extensions?.EXT_nw_overlay_mask
     const appearance = ext?.data
     let maskTextureInfo = ext?.maskTexture as GLTF2.ITextureInfo
     let maskTexture: BABYLON.BaseTexture | null
@@ -52,7 +52,7 @@ export class DyeLoaderExtension implements GLTF2.IGLTFLoaderExtension {
     //   calling loadTextureInfoAsync here produces an infinite loop, yet i can not find a way to load a texture otherwise
     //   abuse the mesh to hold the mask texture and prevent infinite loop
     const marker = 'skipMaskTexture'
-    maskTexture = DyeLoaderExtension.getMaskTexture(babylonMesh)
+    maskTexture = NwOverlayMaskExtension.getMaskTexture(babylonMesh)
 
     if (!maskTexture && (maskTextureInfo?.index >= 0) && !((babylonMesh as any)[marker])) {
       maskTexture = await this.loader
@@ -63,16 +63,16 @@ export class DyeLoaderExtension implements GLTF2.IGLTFLoaderExtension {
           console.error(err)
           return null
         })
-      DyeLoaderExtension.setMaskTexture(babylonMesh, maskTexture || null)
+      NwOverlayMaskExtension.setMaskTexture(babylonMesh, maskTexture || null)
       Object.assign(babylonMesh as any, { [marker]: true })
     }
 
     return this.loader._loadMaterialAsync(context, material, babylonMesh, babylonDrawMode, (babylonMaterial) => {
       if (maskTexture) {
-        DyeLoaderExtension.setMaskTexture(babylonMaterial, maskTexture || null)
+        NwOverlayMaskExtension.setMaskTexture(babylonMaterial, maskTexture || null)
       }
       if (appearance) {
-        DyeLoaderExtension.setAppearance(babylonMaterial, appearance || null)
+        NwOverlayMaskExtension.setAppearance(babylonMaterial, appearance || null)
       }
       return assign(babylonMaterial)
     })

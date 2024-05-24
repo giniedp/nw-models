@@ -11,6 +11,7 @@ export async function collectWeapons(collector: AssetCollector, options: Collect
   const table = await readJSONFile<ItemdefinitionsWeapons[]>(
     path.join(collector.tablesDir, 'javelindata_itemdefinitions_weapons.json'),
   )
+  console.info('Collecting weapons', table.length)
   for (const item of table) {
     if (options.filter && !options.filter(item)) {
       continue

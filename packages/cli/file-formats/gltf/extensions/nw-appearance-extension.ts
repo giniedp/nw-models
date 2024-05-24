@@ -1,6 +1,6 @@
 import { Extension, GLTF, ReaderContext, WriterContext } from '@gltf-transform/core'
 
-import { EXT_NEW_WORLD_APPEARANCE } from './constants'
+import { EXT_NW_OVERLAY_MASK } from './constants'
 import { NwAppearanceProperties } from './properties'
 
 interface NwAppearanceDef {
@@ -9,8 +9,8 @@ interface NwAppearanceDef {
 }
 
 export class NwAppearanceExtension extends Extension {
-  public readonly extensionName = EXT_NEW_WORLD_APPEARANCE
-  public static readonly EXTENSION_NAME = EXT_NEW_WORLD_APPEARANCE
+  public readonly extensionName = EXT_NW_OVERLAY_MASK
+  public static readonly EXTENSION_NAME = EXT_NW_OVERLAY_MASK
 
   public createProps(): NwAppearanceProperties {
     return new NwAppearanceProperties(this.document.getGraph())

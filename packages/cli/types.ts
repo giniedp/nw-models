@@ -60,7 +60,7 @@ export const MountsTableSchema = z.array(
   }),
 )
 export type MountsTable = z.infer<typeof MountsTableSchema>
-export type Mounts = MountsTable[number] & AppearanceMaskDefinition
+export type Mounts = MountsTable[number] & AppearanceMaskProps
 
 export interface ItemdefinitionsWeapons {
   WeaponID: string
@@ -73,30 +73,31 @@ export interface ItemdefinitionsWeapons {
   Appearance?: string
   FemaleAppearance?: string
 }
-export interface AppearanceMaskDefinition {
-  MaskRColor: string
-  MaskROverride: number
+
+export interface AppearanceMaskProps {
   MaskR: number
-  MaskGColor: string
-  MaskGOverride: number
+  MaskROverride: number
+  MaskRColor: string
+
   MaskG: number
-  MaskBColor: string
-  MaskBOverride: number
+  MaskGOverride: number
+  MaskGColor: string
+
   MaskB: number
-  MaskASpecColor: string
+  MaskBOverride: number
+  MaskBColor: string
+
   MaskASpec: number
-  MaskAGlossShift: number
+  MaskASpecColor: string
+
   MaskAGloss: number
+  MaskAGlossShift: number
+
   EmissiveColor: string
   EmissiveIntensity: number
-
-  RDyeSlotDisabled?: string
-  GDyeSlotDisabled?: string
-  BDyeSlotDisabled?: string
-  ADyeSlotDisabled?: string
 }
 
-export interface ItemAppearanceDefinition extends AppearanceMaskDefinition {
+export interface ItemAppearanceDefinition extends AppearanceMaskProps {
   ItemID: string
   AppearanceName: string
   HairChop: string
@@ -104,17 +105,6 @@ export interface ItemAppearanceDefinition extends AppearanceMaskDefinition {
   HideFacialHair: number
   HideLegs: number
   HideHead?: number
-  MaskRDyeOverride: number
-  MaskRDye: number
-  MaskGDyeOverride: number
-  MaskGDye: number
-  MaskBDyeOverride: number
-  MaskBDye: number
-  MaskASpecDye: number
-  RDyeSlotDisabled: string
-  GDyeSlotDisabled: string
-  BDyeSlotDisabled: string
-  ADyeSlotDisabled: string
 
   Skin1: string
   Material1: string
@@ -138,7 +128,7 @@ export interface ItemAppearanceDefinition extends AppearanceMaskDefinition {
   AppearanceCDF: string
 }
 
-export interface WeaponAppearanceDefinition extends AppearanceMaskDefinition {
+export interface WeaponAppearanceDefinition extends AppearanceMaskProps {
   WeaponAppearanceID: string
   Appearance?: string
   FemaleAppearance?: string
@@ -153,7 +143,7 @@ export interface WeaponAppearanceDefinition extends AppearanceMaskDefinition {
   ADyeSlotDisabled?: string
 }
 
-export interface InstrumentAppearance extends AppearanceMaskDefinition {
+export interface InstrumentAppearance extends AppearanceMaskProps {
   WeaponAppearanceID: string
   Name: string
   MeshOverride: string
@@ -167,10 +157,10 @@ export interface InstrumentAppearance extends AppearanceMaskDefinition {
   MaterialOverride4: string
 }
 
-export type Appearance = AppearanceMaskDefinition &
+export type Appearance = AppearanceMaskProps &
   (WeaponAppearanceDefinition | ItemAppearanceDefinition | InstrumentAppearance | Mounts)
 
-export function getAppearanceId(appearance: Appearance | AppearanceMaskDefinition) {
+export function getAppearanceId(appearance: Appearance | AppearanceMaskProps) {
   return (
     (appearance as ItemAppearanceDefinition).ItemID ||
     (appearance as WeaponAppearanceDefinition).WeaponAppearanceID ||

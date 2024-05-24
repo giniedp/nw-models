@@ -72,7 +72,10 @@
   const dyeGDisabled = derived(appearance, (it) => it?.GDyeSlotDisabled !== '0')
   const dyeBDisabled = derived(appearance, (it) => it?.BDyeSlotDisabled !== '0')
   const dyeADisabled = derived(appearance, (it) => it?.ADyeSlotDisabled !== '0')
-  const showDye = derived(appearance, (it) => !!it)
+  const showDye = derived(appearance, (it) => {
+    console.log(it)
+    return !!it
+  })
 </script>
 
 {#if isOpen}

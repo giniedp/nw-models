@@ -66,6 +66,7 @@ export async function collectItemAppearances(collector: AssetCollector, options:
       }
 
       await collector.collect({
+        appearance: item,
         meshes: asset.meshes.map(({ model, material }) => {
           return {
             model,

@@ -40,7 +40,7 @@ export function initViewer({ el, modelUrl, dyeR, dyeG, dyeB, dyeA, debugMask, ap
   })
   showModel(modelUrl)
 
-  function showModel(modelUrl: string) {
+  async function showModel(modelUrl: string) {
     viewer.resetScene()
     toUnsub.forEach((it) => it())
 

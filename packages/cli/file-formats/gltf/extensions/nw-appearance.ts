@@ -19,8 +19,8 @@ import { Appearance } from '../../../types'
 import { replaceExtname } from '../../../utils/file-utils'
 
 import { getMtlObject } from '../utils/annotation'
-import { mergeSpecularGloss } from '../utils/merge-specular-gloss'
 import { textureCache } from '../utils/texture-cache'
+import { textureMerge } from '../utils/texture-merge'
 import { NwAppearanceExtension } from './nw-appearance-extension'
 
 export interface NwAppearanceOptions {
@@ -102,6 +102,8 @@ async function transformMaterials(doc: Document, { appearance }: NwAppearanceOpt
 
     const features = mtl.StringGenMask?.split('%') || []
     const featureOverlayMask = features.includes('OVERLAY_MASK')
+    const featureEmissiveDecal = features.includes('EMISSIVE_DECAL')
+    const featureTintColorMap = features.includes('TINT_COLOR_MAP')
 
     if (givenAppearance) {
       // armor items, mounts, weapons have a custom appearance definitions
@@ -153,6 +155,11 @@ async function transformMaterials(doc: Document, { appearance }: NwAppearanceOpt
       mapCustom = null
     }
 
+    if (featureTintColorMap && !mapDiffuse) {
+      mapDiffuse = mapCustom
+      mapCustom = null
+    }
+
     if (mapDiffuse?.File) {
       const file = `${mapDiffuse.File}`.toLowerCase()
       texDiffuse = await cache.addTextureFromFile(file, mapDiffuse.Map).catch((err) => {
@@ -185,9 +192,11 @@ async function transformMaterials(doc: Document, { appearance }: NwAppearanceOpt
           return {
             name: mapSpecular.Map,
             mime: 'image/png',
-            data: await mergeSpecularGloss({
-              gloss: texSpecular.getImage(),
-              spec: glossFile,
+            data: await textureMerge([texSpecular.getImage(), glossFile], ([a, b], out) => {
+              out[0] = a[0]
+              out[1] = a[1]
+              out[2] = a[2]
+              out[3] = b[0]
             }),
           }
         })
@@ -197,13 +206,34 @@ async function transformMaterials(doc: Document, { appearance }: NwAppearanceOpt
         })
     }
 
-    if (mapEmittance?.File) {
+    if (mapEmittance?.File && mapDecal?.File) {
+      const key = `${mapEmittance.File} ${mapDecal?.File}`.toLowerCase()
+      texEmissive = await cache
+        .addTexture(key, async () => {
+          return {
+            name: mapEmittance.Map,
+            mime: 'image/png',
+            data: await textureMerge([mapEmittance.File, mapDecal.File], ([a, b], out) => {
+              out[0] = (((a[0] / 255) * b[0]) / 255) * 255
+              out[1] = (((a[1] / 255) * b[1]) / 255) * 255
+              out[2] = (((a[2] / 255) * b[2]) / 255) * 255
+              out[3] = (((a[3] / 255) * b[3]) / 255) * 255
+            }),
+          }
+        })
+        .catch((err) => {
+          logger.error(`failed to merge emittance with decal\n\t${mapEmittance?.File}\n\t${mapDecal?.File}\n`, err)
+          return null
+        })
+    }
+    if (!texEmissive && mapEmittance?.File) {
       const key = mapEmittance.File.toLowerCase()
       texEmissive = await cache.addTextureFromFile(key, mapEmittance.Map).catch((err) => {
         logger.error(`failed to read emittance map\n\t${mapEmittance.File}\n`, err)
         return null
       })
     }
+
     if (mapCustom?.File) {
       const key = mapCustom.File.toLowerCase()
       texCustom = await cache.addTextureFromFile(key, mapCustom.Map).catch((err) => {
@@ -211,47 +241,6 @@ async function transformMaterials(doc: Document, { appearance }: NwAppearanceOpt
         return null
       })
     }
-
-    // if (appearance && bake) {
-    //   if (mapCustom?.File && mapDiffuse?.File) {
-    //     const key = `${appearanceId}-${mapDiffuse.File}-${mapCustom.File}}`.toLowerCase()
-    //     texDiffuse = await cache
-    //       .addTexture(key, async () => {
-    //         return {
-    //           name: mapDiffuse.Map,
-    //           mime: 'image/png',
-    //           data: await blendDiffuseMap({
-    //             base: mapDiffuse.File,
-    //             mask: mapCustom.File,
-    //             appearance: appearance,
-    //           }),
-    //         }
-    //       })
-    //       .catch((err) => {
-    //         logger.error(`failed to blend diffuse map\n\t${mapDiffuse.File}\n\t${mapCustom.File}\n`, err)
-    //         return null
-    //       })
-    //   }
-    //   if (mapSpecular?.File && mapCustom?.File) {
-    //     const key = `${appearanceId}-${mapSpecular.File}-${mapCustom.File}`.toLowerCase()
-    //     texSpecular = await cache
-    //       .addTexture(key, async () => {
-    //         return {
-    //           name: mapSpecular.Map,
-    //           mime: 'image/png',
-    //           data: await blendSpecularMap({
-    //             base: mapSpecular?.File,
-    //             mask: mapCustom.File,
-    //             appearance: appearance,
-    //           }),
-    //         }
-    //       })
-    //       .catch((err) => {
-    //         logger.error(`failed to blend specular map\n\t${mapSpecular.File}\n\t${mapCustom.File}\n`, err)
-    //         return null
-    //       })
-    //   }
-    // }
 
     let texTransformProps: any
     if (mtl?.PublicParams && typeof mtl.PublicParams === 'object') {
@@ -294,22 +283,22 @@ async function transformMaterials(doc: Document, { appearance }: NwAppearanceOpt
     if (texSpecular && !isGlass && !isHair) {
       const specExt = doc.createExtension(KHRMaterialsPBRSpecularGlossiness)
       specExt.setRequired(true)
-      const specProps =
+      const props =
         material.getExtension<PBRSpecularGlossiness>(specExt.extensionName) || specExt.createPBRSpecularGlossiness()
-      specProps.setDiffuseTexture(material.getBaseColorTexture())
-      specProps.setSpecularGlossinessTexture(texSpecular)
+      props.setDiffuseTexture(material.getBaseColorTexture())
+      props.setSpecularGlossinessTexture(texSpecular)
       if (texTransformProps) {
-        specProps.getDiffuseTextureInfo().setExtension(KHRTextureTransform.EXTENSION_NAME, texTransformProps)
-        specProps.getSpecularGlossinessTextureInfo().setExtension(KHRTextureTransform.EXTENSION_NAME, texTransformProps)
+        props.getDiffuseTextureInfo().setExtension(KHRTextureTransform.EXTENSION_NAME, texTransformProps)
+        props.getSpecularGlossinessTextureInfo().setExtension(KHRTextureTransform.EXTENSION_NAME, texTransformProps)
       }
 
       if (mtlSpecular && mtlSpecular.length >= 3) {
-        specProps.setSpecularFactor(mtlSpecular.slice(0, 3) as vec3)
+        props.setSpecularFactor(mtlSpecular.slice(0, 3) as vec3)
       }
       if (mtlDiffuse && mtlDiffuse.length === 4) {
-        specProps.setDiffuseFactor(mtlDiffuse as vec4)
+        props.setDiffuseFactor(mtlDiffuse as vec4)
       }
-      material.setExtension(specExt.extensionName, specProps)
+      material.setExtension(specExt.extensionName, props)
 
       // need to remove the pbrMetallicRoughness, otherwise playcanvas would pick that up instead
       material.setMetallicRoughnessTexture(null)
@@ -324,7 +313,7 @@ async function transformMaterials(doc: Document, { appearance }: NwAppearanceOpt
       material.setEmissiveTexture(texEmissive)
       material.setEmissiveFactor([1, 1, 1])
     }
-    if ((isFxTransp || texEmissive) && mtlEmittance && mtlEmittance.length >= 3) {
+    if ((isFxTransp || texEmissive) && !featureEmissiveDecal && mtlEmittance && mtlEmittance.length >= 3) {
       // emittance seems to be only used for the intensity of the emissive texture
       // the alpha channel has a range of 0-20000, which we bring down with a log scale
       const value = [...mtlEmittance]
@@ -358,6 +347,7 @@ async function transformMaterials(doc: Document, { appearance }: NwAppearanceOpt
       const props = ext.createTransmission()
       props.setTransmissionFactor(mtlOpacity ?? 1)
       material.setExtension(KHRMaterialsTransmission.EXTENSION_NAME, props)
+      material.setDoubleSided(true)
     }
 
     if (appearance && texCustom) {
