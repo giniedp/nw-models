@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "tsc -w",
-    "build": "tsc",
+    "build": "tsc -p ./tsconfig.json",
     "test": "globstar -- node --loader tsx --test \"./**/*.spec.ts\""
   },
   "nx": {

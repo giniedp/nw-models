@@ -1,9 +1,10 @@
 {
   "name": "@nw-models/viewer",
   "version": "1.0.0",
+  "type": "module",
   "scripts": {
-    "dev": "yarn webpack serve",
-    "build": "yarn webpack"
+    "dev": "pnpm vite serve",
+    "build": "pnpm vite build"
   },
   "nx": {
     "targets": {

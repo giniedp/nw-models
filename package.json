@@ -4,24 +4,24 @@
   "version": "1.0.0",
   "description": "New World Models Extractor",
   "scripts": {
-    "test": "yarn nx run-many --target=test",
-    "dev": "yarn nx run-many --target=dev",
-    "build": "yarn nx run-many --target=build",
-    "unpack": "yarn cli unpack",
-    "env": "yarn cli env",
-    "convert-tables": "yarn cli convert-tables",
-    "convert-slices": "yarn cli convert-slices",
-    "convert-catalog": "yarn cli convert-catalog",
-    "convert-models": "yarn cli convert-models",
-    "inspect": "yarn cli inspect",
-    "clean": "yarn nx reset && yarn rimraf dist",
-    "viewer": "yarn cli viewer",
-    "cli": "yarn build && env-cmd -f .env node ./dist/cli/index.js"
+    "test": "pnpm nx run-many --target=test",
+    "dev": "pnpm nx run-many --target=dev",
+    "build": "pnpm nx run-many --target=build",
+    "unpack": "pnpm cli unpack",
+    "env": "pnpm cli env",
+    "convert-tables": "pnpm cli convert-tables",
+    "convert-slices": "pnpm cli convert-slices",
+    "convert-catalog": "pnpm cli convert-catalog",
+    "convert-models": "pnpm cli convert-models",
+    "inspect": "pnpm cli inspect",
+    "clean": "pnpm nx reset && pnpm rimraf dist",
+    "viewer": "pnpm cli viewer",
+    "cli": "pnpm build && env-cmd -f .env node ./dist/cli/index.js"
   },
   "author": "Ginie",
   "license": "MIT",
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "workspaces": [
     "packages/*"
@@ -31,23 +31,20 @@
     "@gltf-transform/core": "^3.5.1",
     "@gltf-transform/extensions": "^3.5.1",
     "@gltf-transform/functions": "^3.5.1",
+    "@sveltejs/vite-plugin-svelte": "^3.1.0",
     "@tailwindcss/typography": "^0.5.9",
     "@tsconfig/svelte": "^5.0.2",
     "@types/bun": "^1.1.1",
     "@types/capture-console": "^1.0.1",
     "@types/cli-progress": "^3.11.0",
-    "@types/colors": "^1.2.1",
     "@types/dom-parser": "^0.1.1",
     "@types/draco3dgltf": "^1.4.0",
+    "@types/express": "^4.17.21",
     "@types/http-server": "^0.12.1",
     "@types/jsdom": "^21.1.1",
     "@types/lodash": "^4.14.197",
-    "@types/node": "^18.11.12",
-    "@types/npmlog": "^4.1.4",
-    "@types/rimraf": "^4.0.5",
     "@types/sax": "^1.2.7",
     "@types/semver": "^7.5.1",
-    "@types/sharp": "^0.32.0",
     "@types/shelljs": "^0.8.12",
     "@types/workerpool": "^6.4.0",
     "ag-grid-community": "^30.1.0",
@@ -81,12 +78,11 @@
     "long": "^5.2.3",
     "node-color-log": "^10.0.2",
     "node-worker-threads-pool": "^1.5.1",
-    "npmlog": "^7.0.1",
     "nx": "16.7.4",
     "playcanvas": "^1.65.3",
     "postcss": "^8.4.28",
     "postcss-loader": "^7.3.3",
-    "postcss-preset-env": "^9.1.2",
+    "postcss-preset-env": "^9.5.14",
     "quicktype-core": "^23.0.75",
     "rimraf": "^5.0.1",
     "sax": "^1.3.0",
@@ -104,6 +100,7 @@
     "tslib": "^2.6.1",
     "tsx": "^3.12.7",
     "typescript": "^5.1.6",
+    "vite": "^5.2.11",
     "webpack": "^5.88.2",
     "webpack-cli": "^5.1.4",
     "webpack-dev-server": "^4.15.1",
@@ -111,5 +108,8 @@
     "workerpool": "^6.4.0",
     "zod": "^3.23.6"
   },
-  "packageManager": "yarn@1.22.19"
+  "packageManager": "pnpm@9.1.2",
+  "dependencies": {
+    "@types/node": "^20.12.12"
+  }
 }

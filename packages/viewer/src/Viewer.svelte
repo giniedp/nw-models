@@ -4,7 +4,6 @@
   import type { DyeColor } from './dye-colors'
 
   import { initViewer as bjsViewer, type AppearanceDyeExtras, type Viewer } from './babylon-viewer/viewer'
-  import { initViewer as pcViewer } from './playcanvas-viewer/init-viewer'
 
   export let playcanvas = false
 
@@ -34,7 +33,7 @@
   }
 
   function createViewer(parent: HTMLElement, modelUrl: string) {
-    const initViewer = playcanvas ? pcViewer : bjsViewer
+    const initViewer = bjsViewer
     let el = parent
     if (!playcanvas) {
       el = document.createElement('div')

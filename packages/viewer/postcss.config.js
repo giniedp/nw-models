@@ -1,4 +1,4 @@
-const tailwindcss = require('tailwindcss')
-module.exports = {
-  plugins: ['postcss-preset-env', tailwindcss],
+import tailwindcss from 'tailwindcss'
+export default {
+  plugins: [tailwindcss],
 }
