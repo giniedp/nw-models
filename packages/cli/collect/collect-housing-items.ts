@@ -1,4 +1,4 @@
-import path from 'path'
+import path from 'node:path'
 import { getModelsFromCdf } from '../file-formats/cdf'
 import { getModelsFromSlice } from '../file-formats/dynamicslice'
 import { HousingTableSchema, Housingitems, ModelMeshAsset } from '../types'

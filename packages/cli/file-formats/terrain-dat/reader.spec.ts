@@ -1,5 +1,5 @@
 import { describe, it } from 'bun:test'
-import * as path from 'path'
+import path from 'node:path'
 import { readTerrainDataFile } from './reader'
 
 describe('terrain .dat file format', () => {

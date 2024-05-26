@@ -1,7 +1,7 @@
 import 'colors'
 import { program } from 'commander'
-import * as fs from 'fs'
-import * as path from 'path'
+import fs from 'node:fs'
+import path from 'node:path'
 
 import { CONVERT_DIR, UNPACK_DIR } from '../env'
 import { BinaryReader } from '../file-formats/cgf/binary-reader'

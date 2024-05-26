@@ -3,7 +3,7 @@ import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
 import { draco, prune, textureCompress, unpartition } from '@gltf-transform/functions'
 
 import draco3d from 'draco3dgltf'
-import * as path from 'path'
+import path from 'node:path'
 import sharp from 'sharp'
 import { Appearance, ModelAnimation } from '../../types'
 import { replaceExtname, writeFile, writeFileBinary } from '../../utils/file-utils'
@@ -34,7 +34,7 @@ export async function createGltf({
 }: {
   meshes: CgfModelInput[]
   animations?: ModelAnimation[]
-  appearance?: Appearance
+  appearance?: Appearance | boolean
   output: string
   embedData?: boolean
   withDraco?: boolean
@@ -62,15 +62,15 @@ export async function createGltf({
       overwrite: true,
     }),
     removeLod(),
-    prune({}),
     nwAppearance({
       appearance,
     }),
     stubMissingMaterials({ outFile: output }),
-    prune({}),
     unpartition(),
     uniqTextures(),
-    prune({}),
+    prune({
+      keepSolidTextures: true,
+    }),
   ]
 
   if (withDraco) {

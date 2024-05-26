@@ -142,4 +142,3 @@ This will start a server and open the browser listing all converted models, allo
 # Planned
 
 - Optimize textures (https://www.khronos.org/assets/uploads/apis/KTX-2.0-Launch-Overview-Apr21_.pdf)
-- Overcome the texture size limitation

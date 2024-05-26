@@ -12,12 +12,17 @@ export async function textureMerge(
     info: sharp.OutputInfo
   }> = []
   for (const file of textureFiles) {
-    const map = await sharp(file).raw().ensureAlpha().toBuffer({ resolveWithObject: true })
+    let map = await sharp(file).raw().ensureAlpha().toBuffer({ resolveWithObject: true })
+    if (!maps.length || map.info.width === maps[0].info.width && map.info.height === maps[0].info.height) {
+      maps.push(map)
+      continue
+    }
+    map = await sharp(file).raw().ensureAlpha().resize({
+      width: maps[0].info.width,
+      height: maps[0].info.height,
+      fit: 'contain',
+    }).toBuffer({ resolveWithObject: true })
     maps.push(map)
-  }
-  if (maps.some((map) => map.info.width !== maps[0].info.width)) {
-    logger.warn('spec and gloss texture size mismatch')
-    return null
   }
 
   const buffers = maps.map((map) => new Uint8ClampedArray(map.data))

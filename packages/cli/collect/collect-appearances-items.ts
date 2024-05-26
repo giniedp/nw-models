@@ -1,6 +1,6 @@
-import path from 'path'
-import { resolveCDFAsset } from '../file-formats/cdf'
-import { ItemAppearanceDefinition } from '../types'
+import path from 'node:path'
+import { CharacterDefinition, getCDFSkinsOrCloth, readCDF } from '../file-formats/cdf'
+import { ItemAppearanceDefinition, ModelMeshAsset } from '../types'
 import { glob, logger, readJSONFile } from '../utils'
 import { AssetCollector } from './collector'
 
@@ -16,102 +16,83 @@ export async function collectItemAppearances(collector: AssetCollector, options:
     .then((results) => results.flat())
 
   console.info('Collecting item appearances', table.length)
+
+  // Skin1 and Material1 is the primary model/material pair for the appearance. All items have this.
+  // Skin2 is filler geometry, adds a naked skin if the item is not fully covered
+  // ShortsleeveChestSkin is alternative to Skin1 e.g. for chest pieces when the arms are covered with gloves
+  // AppearanceCDF is on chest pieces only but contains full gearset character. This is where Skirt and Cape geometry is to find.
+
   const outDir = 'itemappearances'
   for (const item of table) {
     if (options.filter && !options.filter(item)) {
       continue
     }
-    await collector.collect({
-      appearance: item,
-      meshes: [
-        {
-          model: item.Skin1,
-          material: item.Material1,
-          ignoreGeometry: false,
-          ignoreSkin: false,
-          transform: null,
-        },
-      ],
-      outFile: path.join(outDir, [item.ItemID, 'Skin1'].join('-')),
-    })
-    await collector.collect({
-      appearance: item,
-      meshes: [
-        {
-          model: item.Skin2,
-          // TODO: resolve material from skin. The fallback material is not correct here
-          material: item.Material2 || item.Material1,
-          ignoreGeometry: false,
-          ignoreSkin: false,
-          transform: null,
-        },
-      ],
-      outFile: path.join(outDir, [item.ItemID, 'Skin2'].join('-')),
-    })
+    if (!item.Skin1 || !item.Material1) {
+      // all items should have Skin1 and Material1
+      continue
+    }
 
-    // ===========================================================
-    // HINT: AppearanceCDF is usually set on a Chest piece and points to a CDF file
-    //       that contains the mesh and materials for the whole appearance
-    // ===========================================================
-    if (item.AppearanceCDF) {
-      const asset = await resolveCDFAsset(item.AppearanceCDF, {
-        inputDir: collector.inputDir,
-        skipAnimations: true,
-      }).catch((err) => {
-        logger.error(err)
-        logger.warn(`failed to read`, item.AppearanceCDF)
-      })
-      if (!asset) {
-        continue
-      }
-
+    const attachments: ModelMeshAsset[] = await getCloth(item, collector)
+    if (item.Skin1) {
       await collector.collect({
         appearance: item,
-        meshes: asset.meshes.map(({ model, material }) => {
-          return {
-            model,
-            material,
+        meshes: [
+          {
+            model: item.Skin1,
+            material: item.Material1,
             ignoreGeometry: false,
             ignoreSkin: false,
             transform: null,
-          }
-        }),
-        outFile: path.join(outDir, [item.ItemID, 'AppearanceCDF'].join('-')),
+          },
+          ...attachments,
+        ],
+        outFile: path.join(outDir, [item.ItemID, 'Skin1'].join('-')),
       })
     }
-
-    // ===========================================================
-    // HINT: different variations of arms with and without sleeves
-    // ===========================================================
-
-    //   appearance: item,
-    //   model: item.ShortsleeveChestSkin,
-    //   material: item.Material1 || item.Material2,
-    //   outFile: path.join(outDir, [item.ItemID, 'ShortsleeveChestSkin'].join('-')),
-
-    //   appearance: item,
-    //   model: item.HandsNoForearmsSkin,
-    //   material: item.Material1 || item.Material2,
-    //   outFile: path.join(outDir, [item.ItemID, 'HandsNoForearmsSkin'].join('-')),
-
-    //   appearance: item,
-    //   model: item.LeftHandOnlySkin,
-    //   material: item.Material1 || item.Material2,
-    //   outFile: path.join(outDir, [item.ItemID, 'LeftHandOnlySkin'].join('-')),
-
-    //   appearance: item,
-    //   model: item.RightHandOnlySkin,
-    //   material: item.Material1 || item.Material2,
-    //   outFile: path.join(outDir, [item.ItemID, 'RightHandOnlySkin'].join('-')),
-
-    //   appearance: item,
-    //   model: item.LeftSleeveOnlyChestSkin,
-    //   material: item.Material1 || item.Material2,
-    //   outFile: path.join(outDir, [item.ItemID, 'LeftSleeveOnlyChestSkin'].join('-')),
-
-    //   appearance: item,
-    //   model: item.RightSleeveOnlyChestSkin,
-    //   material: item.Material1 || item.Material2,
-    //   outFile: path.join(outDir, [item.ItemID, 'RightSleeveOnlyChestSkin'].join('-')),
+    if (item.ShortsleeveChestSkin) {
+      await collector.collect({
+        appearance: item,
+        meshes: [
+          {
+            model: item.ShortsleeveChestSkin,
+            material: item.Material1,
+            ignoreGeometry: false,
+            ignoreSkin: false,
+            transform: null,
+          },
+          ...attachments,
+        ],
+        outFile: path.join(outDir, [item.ItemID, 'ShortsleeveChestSkin'].join('-')),
+      })
+    }
   }
+}
+
+async function getCloth(item: ItemAppearanceDefinition, options: { inputDir: string }) {
+  const result: Array<ModelMeshAsset> = []
+  if (!item.AppearanceCDF) {
+    return result
+  }
+  const cdfFile = path.resolve(options.inputDir, item.AppearanceCDF)
+  const cdf = await readCDF(cdfFile).catch((err): CharacterDefinition => {
+    logger.error(`Failed to read CDF file ${cdfFile}`)
+    return null
+  })
+  if (!cdf) {
+    return result
+  }
+  const cloth = getCDFSkinsOrCloth(cdf)?.filter((it) => it.type === 'CA_CLOTH')
+  if (!cloth) {
+    return result
+  }
+  for (const item of cloth) {
+    result.push({
+      model: item.model,
+      material: item.material,
+      ignoreGeometry: false,
+      ignoreSkin: false,
+      transform: null,
+    })
+  }
+  return result
 }

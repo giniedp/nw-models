@@ -6,14 +6,14 @@ import {
   PBRSpecularGlossiness,
 } from '@gltf-transform/extensions'
 import { createTransform } from '@gltf-transform/functions'
-import * as fs from 'fs'
+import fs from 'node:fs'
 import { isFinite } from 'lodash'
 import {
   MtlObject,
   MtlShader,
   getMaterialParamNum,
   getMaterialParamVec,
-  getMtlTextures,
+  getMaterialTextures,
 } from '../../../file-formats/mtl'
 import { Appearance } from '../../../types'
 import { replaceExtname } from '../../../utils/file-utils'
@@ -24,7 +24,7 @@ import { textureMerge } from '../utils/texture-merge'
 import { NwAppearanceExtension } from './nw-appearance-extension'
 
 export interface NwAppearanceOptions {
-  appearance: Appearance
+  appearance: Appearance | boolean
 }
 
 export function nwAppearance(options: NwAppearanceOptions) {
@@ -82,7 +82,7 @@ async function transformMaterials(doc: Document, { appearance }: NwAppearanceOpt
     const mtlOpacity = getMaterialParamNum(mtl, 'Opacity')
     const mtlAlphaTest = getMaterialParamNum(mtl, 'AlphaTest')
     const mtlShininess = getMaterialParamNum(mtl, 'Shininess')
-    const mtlTextures = getMtlTextures(mtl) || []
+    const mtlTextures = getMaterialTextures(mtl) || []
 
     // The diffuse color texture. All models should have this
     let mapDiffuse = mtlTextures.find((it) => it.Map === 'Diffuse')
@@ -105,7 +105,7 @@ async function transformMaterials(doc: Document, { appearance }: NwAppearanceOpt
     const featureEmissiveDecal = features.includes('EMISSIVE_DECAL')
     const featureTintColorMap = features.includes('TINT_COLOR_MAP')
 
-    if (givenAppearance) {
+    if (givenAppearance || givenAppearance === false) {
       // armor items, mounts, weapons have a custom appearance definitions
       appearance = givenAppearance
     } else if (featureOverlayMask) {
@@ -350,13 +350,15 @@ async function transformMaterials(doc: Document, { appearance }: NwAppearanceOpt
       material.setDoubleSided(true)
     }
 
-    if (appearance && texCustom) {
+    if (texCustom && appearance != null) {
       const extension = doc.createExtension(NwAppearanceExtension)
       extension.setRequired(false)
       const props = extension.createProps()
-      props.setData({
-        ...appearance,
-      })
+      if (typeof appearance === 'object') {
+        props.setData({
+          ...appearance,
+        })
+      }
       props.setMaskTexture(texCustom)
       material.setExtension(NwAppearanceExtension.EXTENSION_NAME, props)
     }

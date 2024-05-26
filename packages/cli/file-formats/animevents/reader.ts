@@ -1,5 +1,5 @@
 import { XMLParser } from 'fast-xml-parser'
-import * as fs from 'fs'
+import fs from 'node:fs'
 
 export type AnimeventsDocument = {
   anim_event_list: AnimEventList

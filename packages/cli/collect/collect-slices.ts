@@ -1,6 +1,6 @@
 import { mat4 } from '@gltf-transform/core'
-import fs from 'fs'
-import path from 'path'
+import fs from 'node:fs'
+import path from 'node:path'
 import { getAssetPath, getModelFromSliceEntity, walkSlice } from '../file-formats/dynamicslice'
 import { AZ__Entity, isPrefabSpawnerComponent } from '../file-formats/dynamicslice/types'
 import { ModelMeshAsset } from '../types'
@@ -10,6 +10,7 @@ import { AssetCollector } from './collector'
 export interface CollectSlicesOptions {
   files: string[]
   convertDir: string
+  outFile: string
 }
 
 export async function collectSlices(collector: AssetCollector, options: CollectSlicesOptions) {

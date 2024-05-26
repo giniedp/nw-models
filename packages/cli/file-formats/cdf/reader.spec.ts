@@ -1,5 +1,5 @@
-import * as fs from 'fs'
-import * as path from 'path'
+import fs from 'node:fs'
+import path from 'node:path'
 import assert from 'assert/strict'
 import { describe, it } from 'node:test'
 import { readCDF } from './reader'

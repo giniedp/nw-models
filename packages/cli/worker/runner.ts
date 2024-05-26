@@ -1,5 +1,5 @@
 import { Presets, SingleBar } from 'cli-progress'
-import * as path from 'path'
+import path from 'node:path'
 import { logger } from '../utils'
 import workerpool from 'workerpool'
 import { TaskArgs, TaskName, WORKER_TASKS } from './tasks'

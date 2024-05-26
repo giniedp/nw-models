@@ -2,7 +2,7 @@ import { mat4 } from '@gltf-transform/core'
 import { z } from 'zod'
 
 export interface ModelAsset {
-  appearance?: Appearance
+  appearance?: Appearance | boolean
   animations?: ModelAnimation[]
   meshes: ModelMeshAsset[]
   outFile: string

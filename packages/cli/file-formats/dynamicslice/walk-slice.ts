@@ -1,5 +1,5 @@
 import { mat4 } from '@gltf-transform/core'
-import fs from 'fs'
+import fs from 'node:fs'
 import { logger, readJSONFile } from '../../utils'
 import { mat4Identity, mat4Multiply } from '../gltf/utils/math'
 import { AZ__Entity, isAZ__Entity, isGameTransformComponent, isSliceComponent } from './types'

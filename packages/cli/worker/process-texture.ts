@@ -1,5 +1,5 @@
-import * as fs from 'fs'
-import * as path from 'path'
+import fs from 'node:fs'
+import path from 'node:path'
 import { copyDdsFile, ddsToPng } from '../file-formats/dds/converter'
 import { resolveAbsoluteTexturePath } from '../file-formats/resolvers'
 import { logger } from '../utils/logger'
@@ -13,8 +13,6 @@ export type ProcessTextureOptions = {
 }
 
 export async function processTexture({ inputDir, outputDir, texture, texSize, update }: ProcessTextureOptions) {
-  // const source = gameFileSystem(inputDir)
-  // const target = gameFileSystem(outputDir)
 
   const inputFile = resolveAbsoluteTexturePath(texture, { inputDir })
   if (!inputFile) {
@@ -36,7 +34,7 @@ export async function processTexture({ inputDir, outputDir, texture, texSize, up
       ddsFile: file,
       outDir: path.dirname(file),
       isNormal: basename.endsWith('_ddna') || basename.endsWith('_ddn'), // !!! does not include the _ddna.a.dds files !!!
-      size: texSize,
+      maxsize: texSize,
     })
   }
 }

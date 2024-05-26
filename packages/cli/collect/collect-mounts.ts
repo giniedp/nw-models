@@ -1,4 +1,5 @@
-import path from 'path'
+import path from 'node:path'
+import { adbActionsForTags, readAdbFile } from '../file-formats/adb'
 import { resolveCDFAsset } from '../file-formats/cdf'
 import { ModelAnimation, Mounts, MountsTableSchema } from '../types'
 import { logger, readJSONFile } from '../utils'
@@ -37,18 +38,17 @@ export async function collectMounts(collector: AssetCollector, options: CollectM
     }
 
     const adbFile = ADB_MAP[item.MountType]
-    const animations: ModelAnimation[] = []
+    let animations: ModelAnimation[] = []
     if (adbFile) {
-      const list = await collectAnimations({
-        adbFile: adbFile,
+      const adb = await readAdbFile(path.resolve(collector.inputDir, adbFile))
+      animations = await collectAnimations({
+        actions: adbActionsForTags(adb),
         animations: asset.animations,
-        inputDir: collector.inputDir,
       })
-      animations.push(...list)
     }
 
     await collector.collect({
-      animations:  animations,
+      animations: animations,
       meshes: asset.meshes.map(({ model, material }) => {
         return {
           model,

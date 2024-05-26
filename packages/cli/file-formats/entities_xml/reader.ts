@@ -1,6 +1,6 @@
 import { mat4 } from '@gltf-transform/core'
 import { XMLParser } from 'fast-xml-parser'
-import * as fs from 'fs'
+import fs from 'node:fs'
 import { cryToGltfMat4, mat4Identity } from '../gltf/utils/math'
 import { ClassNode, ObjectStreamDocument } from './types'
 

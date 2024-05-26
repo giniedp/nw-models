@@ -1,5 +1,5 @@
-import * as fs from 'fs'
-import * as path from 'path'
+import fs from 'node:fs'
+import path from 'node:path'
 import { readLevelDataFile } from './level-data'
 import { readLevelDataActionFile } from './level-data-actions'
 import { readLevelInfoFile } from './level-info'

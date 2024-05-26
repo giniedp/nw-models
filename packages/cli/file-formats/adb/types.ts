@@ -5,6 +5,16 @@ export interface AnimDBDocument {
 
 export interface AnimDBNode {
   FragmentList: FragmentListNode
+  SubADBs: SubADBsListNode
+}
+
+export interface SubADBsListNode {
+  SubADB: SubADBNode[]
+}
+
+export interface SubADBNode {
+  Tags: string
+  File: FragmentListNode
 }
 
 export interface FragmentListNode {
@@ -25,6 +35,7 @@ export interface AnimLayerNode {
 
 export interface AnimationNode {
   name: string
+  weight: number
 }
 
 export interface ProcLayerNode {

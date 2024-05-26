@@ -1,5 +1,5 @@
 import { mat4 } from '@gltf-transform/core'
-import path from 'path'
+import path from 'node:path'
 import { cryToGltfMat4, mat4FromQuaternion, mat4Identity } from '../gltf/utils/math'
 import { Asset, GameTransformComponent } from './types'
 

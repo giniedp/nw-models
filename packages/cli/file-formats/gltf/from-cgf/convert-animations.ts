@@ -1,5 +1,5 @@
 import type { Document } from '@gltf-transform/core'
-import path from 'path'
+import path from 'node:path'
 import { CgfFile, readCgf } from '../../../file-formats/cgf'
 import { ModelAnimation } from '../../../types'
 import { logger } from '../../../utils/logger'

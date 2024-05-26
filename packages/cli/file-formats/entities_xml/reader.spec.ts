@@ -1,5 +1,5 @@
 import { describe, it } from 'node:test'
-import * as path from 'path'
+import path from 'node:path'
 import { getModelsFromObjectStream, readEntitiesXml } from './reader'
 
 describe('.entities_xml file format', () => {

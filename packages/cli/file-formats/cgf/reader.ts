@@ -1,4 +1,4 @@
-import * as fs from 'fs'
+import fs from 'node:fs'
 
 import { logger } from '../../utils/logger'
 import { BinaryReader } from './binary-reader'

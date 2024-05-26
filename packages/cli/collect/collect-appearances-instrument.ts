@@ -1,4 +1,4 @@
-import path from 'path'
+import path from 'node:path'
 import { resolveCDFAsset } from '../file-formats/cdf'
 import { InstrumentAppearance } from '../types'
 import { logger, readJSONFile } from '../utils'

@@ -1,4 +1,4 @@
-import path from 'path'
+import path from 'node:path'
 
 export function resolveTool(toolName: string): string {
   // TODO: resolve tool from PATH

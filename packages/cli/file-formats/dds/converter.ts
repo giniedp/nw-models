@@ -1,30 +1,41 @@
 import { texconv, TexconvArgs } from '../../tools/texconv'
 import { copyFile, glob, logger, mkdir, replaceExtname } from '../../utils'
-import * as fs from 'fs'
+import fs from 'node:fs'
 import { sortBy } from 'lodash'
-import * as path from 'path'
+import path from 'node:path'
+import { readDdsHeader } from './read-header'
 
 export interface DdsToPngOptions {
   isNormal: boolean
   ddsFile: string
   outDir: string
   size?: number
+  maxsize?: number
 }
 
-export async function ddsToPng({ isNormal, ddsFile, outDir, size }: DdsToPngOptions) {
+export async function ddsToPng({ isNormal, ddsFile, outDir, size, maxsize }: DdsToPngOptions) {
   const pngFile = replaceExtname(ddsFile, '.png')
   const options: TexconvArgs = {
     input: ddsFile,
     overwrite: true,
     fileType: 'png',
     output: outDir,
-    width: size,
-    height: size,
     sepalpha: true
+  }
+
+  if (size) {
+    options.width = size
+    options.height = size
   }
 
   if (fs.existsSync(pngFile)) {
     fs.unlinkSync(pngFile)
+  }
+
+  const header = await readDdsHeader(ddsFile)
+  if (maxsize && (header.width > maxsize || header.height > maxsize)) {
+    options.width = maxsize
+    options.height = maxsize
   }
 
   if (isNormal) {

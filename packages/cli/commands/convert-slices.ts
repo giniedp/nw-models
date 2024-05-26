@@ -1,6 +1,6 @@
 import 'colors'
 import { program } from 'commander'
-import * as path from 'path'
+import path from 'node:path'
 
 import { CONVERT_DIR, UNPACK_DIR } from '../env'
 import { objectStreamConverter } from '../tools/object-stream-converter'

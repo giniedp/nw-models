@@ -1,7 +1,7 @@
 import 'colors'
 import { program } from 'commander'
 import express from 'express'
-import * as path from 'path'
+import path from 'node:path'
 
 import { MODELS_DIR } from '../env'
 

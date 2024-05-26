@@ -4,7 +4,10 @@ import { loadMtlFile } from './reader'
 
 describe('.mtl file format', () => {
   it('parse', async () => {
-    const mtl = await loadMtlFile(`${__dirname}/sample/male_alchemist_chest_matgroup.mtl`)
+    const mtl = await loadMtlFile(`sample/male_alchemist_chest_matgroup.mtl`, {
+      catalog: {},
+      inputDir: __dirname,
+    })
     assert.equal(mtl.length, 1)
   })
 })

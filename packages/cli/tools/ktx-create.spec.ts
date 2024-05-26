@@ -1,7 +1,7 @@
 import assert from 'assert/strict'
-import * as fs from 'fs'
+import fs from 'node:fs'
 import { describe, it } from 'node:test'
-import * as path from 'path'
+import path from 'node:path'
 import { replaceExtname } from '../utils'
 import { ktxCreate } from './ktx-create'
 

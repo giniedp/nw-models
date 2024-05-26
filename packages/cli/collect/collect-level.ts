@@ -1,4 +1,4 @@
-import * as path from 'path'
+import path from 'node:path'
 import { loadLevel } from '../file-formats/level/loader'
 import { glob, logger } from '../utils'
 import { AssetCollector } from './collector'

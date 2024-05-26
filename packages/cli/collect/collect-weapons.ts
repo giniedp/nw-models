@@ -1,4 +1,4 @@
-import path from 'path'
+import path from 'node:path'
 import { ItemdefinitionsWeapons } from '../types'
 import { readJSONFile } from '../utils'
 import { AssetCollector } from './collector'

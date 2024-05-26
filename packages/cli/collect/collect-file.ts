@@ -1,5 +1,6 @@
-import path from 'path'
+import path from 'node:path'
 import { z } from 'zod'
+import { adbActionsForTags, readAdbFile } from '../file-formats/adb'
 import { resolveCDFAsset } from '../file-formats/cdf'
 import { DEFAULT_MATERIAL } from '../file-formats/resolvers'
 import { ModelAnimation } from '../types'
@@ -45,24 +46,24 @@ export async function collectFile(collector: AssetCollector, options: CollectFil
 
     let animations: ModelAnimation[] = []
     if (item.adb) {
+      const adb = await readAdbFile(path.resolve(collector.inputDir, item.adb))
       animations = await collectAnimations({
         animations: asset.animations,
-        inputDir: collector.inputDir,
-        adbFile: item.adb,
-      })
-      animations = animations.filter((it) => {
-        if (it.damageIds?.length) {
-          return true
-        }
-        return it.actions.some((it) => {
-          if (it.toLowerCase().startsWith('idle')){
+        actions: adbActionsForTags(adb),
+        filter: ({ damageIds, actions }) => {
+          if (damageIds?.length) {
             return true
           }
-          if (it.toLowerCase().startsWith('combat_idle')){
-            return true
-          }
-          return false
-        })
+          return actions.some((it) => {
+            if (it.toLowerCase().startsWith('idle')) {
+              return true
+            }
+            if (it.toLowerCase().startsWith('combat_idle')) {
+              return true
+            }
+            return false
+          })
+        },
       })
     }
     if (item.dmg) {

@@ -1,4 +1,4 @@
-import path from 'path'
+import path from 'node:path'
 import { resolveCDFAsset } from '../file-formats/cdf'
 import { Npc, NpcSchema } from '../types'
 import { logger, readJSONFile } from '../utils'

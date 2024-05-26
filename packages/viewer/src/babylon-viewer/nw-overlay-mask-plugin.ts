@@ -81,13 +81,11 @@ export class NwOverlayMaskPlugin extends BABYLON.MaterialPluginBase {
     return NAME
   }
 
-  // we use the define to enable or disable the plugin.
   public override prepareDefines(defines: BABYLON.MaterialDefines, scene: BABYLON.Scene, mesh: BABYLON.AbstractMesh) {
     defines.NW_OVERLAY_MASK = this._isEnabled
     defines.NW_OVERLAY_DEBUG = this._debugMask
   }
 
-  // here we can define any uniforms to be passed to the shader code.
   public override getUniforms() {
     return {
       ubo: [
@@ -115,8 +113,6 @@ export class NwOverlayMaskPlugin extends BABYLON.MaterialPluginBase {
     samplers.push('nwMaskTexture')
   }
 
-  // whenever a material is bound to a mesh, we need to update the uniforms.
-  // so bind our uniform variable to the actual color we have in the instance.
   public override bindForSubMesh(
     uniformBuffer: BABYLON.UniformBuffer,
     scene: BABYLON.Scene,

@@ -71,20 +71,69 @@ function disposer() {
   }
 }
 
+
+function viewerSetLightMode(viewer: DefaultViewer) {
+
+  const skyMat = viewer.sceneManager.environmentHelper?.skyboxMaterial
+  const gndMat = viewer.sceneManager.environmentHelper?.groundMaterial
+  if (skyMat) {
+    skyMat.alpha = 1
+  }
+  if (gndMat) {
+    gndMat.alpha = 0.4
+  }
+  viewer.sceneManager.bloomEnabled = true
+  viewer.sceneManager.scene.environmentIntensity = 1
+  const pipeline = viewer.sceneManager.defaultRenderingPipeline
+  if (pipeline) {
+    pipeline.imageProcessing.contrast = 1.5
+  }
+}
+
+function viewerSetDarkMode(viewer: DefaultViewer) {
+  const skyMat = viewer.sceneManager.environmentHelper?.skyboxMaterial
+  const gndMat = viewer.sceneManager.environmentHelper?.groundMaterial
+  if (skyMat) {
+    skyMat.alpha = 0
+  }
+  if (gndMat) {
+    gndMat.alpha = 0
+  }
+  viewer.sceneManager.bloomEnabled = false
+  viewer.sceneManager.scene.environmentIntensity = 1
+  const pipeline = viewer.sceneManager.defaultRenderingPipeline
+  if (pipeline) {
+    pipeline.imageProcessing.contrast = 2
+  }
+}
+
+
 export type Viewer = ReturnType<typeof initViewer>
 export function initViewer({ el, modelUrl, dyeR, dyeG, dyeB, dyeA, debugMask, appearance }: BabylonViewerOptions) {
   const viewer = new DefaultViewer(el, {
+    engine: {
+      antialiasing: true,
+      hdEnabled: true,
+      adaptiveQuality: true,
+    },
+    scene: {
+      clearColor: {
+        r: 0,
+        g: 0,
+        b: 0,
+        a: 0,
+      },
+    },
+    ground: {
+      opacity: 0,
+    },
     templates: {
       navBar: null,
+      loadingScreen: null,
     } as any,
-    // scene: {
-    //   clearColor: {
-    //     r: 0,
-    //     g: 0,
-    //     b: 0,
-    //     a: 0,
-    //   },
-    // },
+  })
+  viewer.onSceneInitObservable.add((scene) => {
+    viewerSetLightMode(viewer)
   })
 
   async function showModel(modelUrl: string) {
@@ -135,10 +184,23 @@ export function initViewer({ el, modelUrl, dyeR, dyeG, dyeB, dyeA, debugMask, ap
           updateDyeChannel({
             model,
             appearance: data!,
-            dyeR: r?.Color || null,
-            dyeG: g?.Color || null,
-            dyeB: b?.Color || null,
-            dyeA: a?.Color || null,
+            dyeR: r?.ColorAmount,
+            dyeROverride: r?.ColorOverride,
+            dyeRColor: r?.Color,
+
+            dyeG: g?.ColorAmount,
+            dyeGOverride: g?.ColorOverride,
+            dyeGColor: g?.Color,
+
+            dyeB: b?.ColorAmount,
+            dyeBOverride: b?.ColorOverride,
+            dyeBColor: b?.Color,
+
+            dyeA: a?.SpecAmount,
+            // dyeAOverride:
+            dyeAColor: a?.SpecColor,
+            glossShift: a?.MaskGlossShift,
+
             debugMask: !!debug,
           })
         },
@@ -159,17 +221,35 @@ function updateDyeChannel({
   model,
   appearance,
   dyeR,
+  dyeROverride,
+  dyeRColor,
   dyeG,
+  dyeGOverride,
+  dyeGColor,
   dyeB,
+  dyeBOverride,
+  dyeBColor,
   dyeA,
+  dyeAOverride,
+  dyeAColor,
+  glossShift,
   debugMask,
 }: {
   model: ViewerModel
   appearance: AppearanceDyeExtras
-  dyeR: string | null
-  dyeG: string | null
-  dyeB: string | null
-  dyeA: string | null
+  dyeR?: number
+  dyeROverride?: number
+  dyeRColor?: string
+  dyeG?: number
+  dyeGOverride?: number
+  dyeGColor?: string
+  dyeB?: number
+  dyeBOverride?: number
+  dyeBColor?: string
+  dyeA?: number
+  dyeAOverride?: number
+  dyeAColor?: string
+  glossShift?: number
   debugMask: boolean
 }) {
   for (const mesh of model.meshes) {
@@ -187,9 +267,9 @@ function updateDyeChannel({
     mtl.debugMask = debugMask
 
     const maskR = getMaskSettings({
-      dye: appearance.MaskRDye ?? appearance.MaskR ?? 0,
-      dyeOverride: appearance.MaskRDyeOverride ?? appearance.MaskROverride ?? 0,
-      dyeColor: dyeR,
+      dye: dyeR ?? appearance.MaskRDye ?? appearance.MaskR ?? 0,
+      dyeOverride: dyeROverride ?? appearance.MaskRDyeOverride ?? appearance.MaskROverride ?? 0,
+      dyeColor: dyeRColor ?? null,
       mask: appearance.MaskR ?? 0,
       maskOverride: appearance.MaskROverride ?? 0,
       maskColor: appearance.MaskRColor,
@@ -199,9 +279,9 @@ function updateDyeChannel({
     mtl.nwMaskRColor = maskR.maskColor
 
     const maskG = getMaskSettings({
-      dye: appearance.MaskGDye ?? appearance.MaskG ?? 0,
-      dyeOverride: appearance.MaskGDyeOverride ?? appearance.MaskGOverride ?? 0,
-      dyeColor: dyeG,
+      dye: dyeG ?? appearance.MaskGDye ?? appearance.MaskG ?? 0,
+      dyeOverride: dyeGOverride ?? appearance.MaskGDyeOverride ?? appearance.MaskGOverride ?? 0,
+      dyeColor: dyeGColor ?? null,
       mask: appearance.MaskG ?? 0,
       maskOverride: appearance.MaskGOverride ?? 0,
       maskColor: appearance.MaskGColor,
@@ -211,9 +291,9 @@ function updateDyeChannel({
     mtl.nwMaskGColor = maskG.maskColor
 
     const maskB = getMaskSettings({
-      dye: appearance.MaskBDye ?? appearance.MaskB ?? 0,
-      dyeOverride: appearance.MaskBDyeOverride ?? appearance.MaskBOverride ?? 0,
-      dyeColor: dyeB,
+      dye: dyeB ?? appearance.MaskBDye ?? appearance.MaskB ?? 0,
+      dyeOverride: dyeBOverride ?? appearance.MaskBDyeOverride ?? appearance.MaskBOverride ?? 0,
+      dyeColor: dyeBColor ?? null,
       mask: appearance.MaskB ?? 0,
       maskOverride: appearance.MaskBOverride ?? 0,
       maskColor: appearance.MaskBColor,
@@ -223,16 +303,17 @@ function updateDyeChannel({
     mtl.nwMaskBColor = maskB.maskColor
 
     const maskA = getMaskSettings({
-      dye: appearance.MaskASpecDye ?? appearance.MaskASpec ?? 0,
-      dyeOverride: appearance.MaskASpecDye ?? appearance.MaskASpec ?? 0,
-      dyeColor: dyeA,
+      dye: dyeA ?? appearance.MaskASpecDye ?? appearance.MaskASpec ?? 0,
+      dyeOverride: dyeAOverride ?? appearance.MaskASpecDye ?? appearance.MaskASpec ?? 0,
+      dyeColor: dyeAColor ?? null,
       mask: appearance.MaskASpec ?? 0,
       maskOverride: appearance.MaskASpec ?? 0,
       maskColor: appearance.MaskASpecColor,
     })
     mtl.nwMaskASpecOverride = maskA.mask
     mtl.nwMaskASpec = maskA.maskColor
-    //mtl.updateReflectivity()
+    mtl.nwMaskGlossShift = glossShift ?? appearance.MaskAGlossShift ?? 0.5
+    mtl.nwMaskGloss = appearance.MaskAGloss ?? 0
   }
 }
 

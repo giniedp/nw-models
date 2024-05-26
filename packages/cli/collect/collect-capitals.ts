@@ -1,6 +1,6 @@
 import { mat4 } from '@gltf-transform/core'
-import fs from 'fs'
-import path from 'path'
+import fs from 'node:fs'
+import path from 'node:path'
 import { z } from 'zod'
 import {
   getAssetPath,

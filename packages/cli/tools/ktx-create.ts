@@ -1,6 +1,6 @@
 import cp from 'child_process'
 import { logger, spawn } from '../utils'
-import fs from 'fs'
+import fs from 'node:fs'
 import { Readable } from 'stream'
 
 export interface KtxEncodeOptions {

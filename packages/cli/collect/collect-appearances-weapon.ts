@@ -1,4 +1,4 @@
-import path from 'path'
+import path from 'node:path'
 import { resolveCDFAsset } from '../file-formats/cdf'
 import { WeaponAppearanceDefinition } from '../types'
 import { logger, readJSONFile } from '../utils'
@@ -6,6 +6,7 @@ import { AssetCollector } from './collector'
 
 export interface CollectWeaponsOptions {
   filter?: (item: WeaponAppearanceDefinition) => boolean
+  embedApperance?: boolean
 }
 
 export async function collectWeaponAppearances(collector: AssetCollector, options: CollectWeaponsOptions) {
@@ -25,32 +26,14 @@ export async function collectWeaponAppearances(collector: AssetCollector, option
     if (options.filter && !options.filter(item)) {
       continue
     }
-    await collector.collect({
-      appearance: item,
-      meshes: [
-        {
-          model: item.SkinOverride1,
-          material: item.MaterialOverride1,
-          ignoreGeometry: false,
-          ignoreSkin: false,
-          transform: null,
-        },
-      ],
-      outFile: path.join('weaponappearances', [item.WeaponAppearanceID, 'SkinOverride1'].join('-')),
-    })
-    await collector.collect({
-      appearance: item,
-      meshes: [
-        {
-          model: item.SkinOverride2,
-          material: item.MaterialOverride1, // HINT: this is a guess, there is no `MaterialOverride2`
-          ignoreGeometry: false,
-          ignoreSkin: false,
-          transform: null,
-        },
-      ],
-      outFile: path.join('weaponappearances', [item.WeaponAppearanceID, 'SkinOverride2'].join('-')),
-    })
+
+    // HING: SkinOverride1 and SkinOverride2 are skipped here.
+    // They are not useful for weapon appearances. Usually contain bow strings.
+
+    let outFile = item.MeshOverride
+    if (options.embedApperance) {
+      outFile = path.join('weaponappearances', [item.WeaponAppearanceID, 'MeshOverride'].join('-'))
+    }
     if (item.MeshOverride && path.extname(item.MeshOverride) === '.cdf') {
       const asset = await resolveCDFAsset(item.MeshOverride, {
         inputDir: collector.inputDir,
@@ -74,7 +57,7 @@ export async function collectWeaponAppearances(collector: AssetCollector, option
             transform: null,
           }
         }),
-        outFile: path.join('weaponappearances', [item.WeaponAppearanceID, 'MeshOverride'].join('-')),
+        outFile,
       })
     }
     if (item.MeshOverride && path.extname(item.MeshOverride) === '.cgf') {
@@ -83,13 +66,13 @@ export async function collectWeaponAppearances(collector: AssetCollector, option
         meshes: [
           {
             model: item.MeshOverride,
-            material: item.MaterialOverride1,
+            material: null, // will be resolved from the model
             ignoreGeometry: false,
             ignoreSkin: false,
             transform: null,
           },
         ],
-        outFile: path.join('weaponappearances', [item.WeaponAppearanceID, 'MeshOverride'].join('-')),
+        outFile,
       })
     }
   }

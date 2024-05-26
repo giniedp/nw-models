@@ -1,16 +1,9 @@
 import { XMLParser } from 'fast-xml-parser'
-import * as fs from 'fs'
+import fs from 'node:fs'
+import path from 'node:path'
 import { logger } from '../../utils'
 import { MtlDocument, MtlObject } from './types'
-
-export async function loadMtlFile(mtlFile: string): Promise<MtlObject[]> {
-  if (!fs.existsSync(mtlFile)) {
-    logger.warn(`Material does not exist: ${mtlFile}`)
-    return null
-  }
-  const doc = await readMtlFile(mtlFile)
-  return getSubMaterials(doc?.Material)
-}
+import { getMaterialList, getMaterialTextures, resolveMtlTexturePath } from './utils'
 
 export async function readMtlFile(file: string): Promise<MtlDocument> {
   const data = await fs.promises.readFile(file, { encoding: 'utf-8' })
@@ -30,21 +23,27 @@ export function parseMtlFile(data: string): any {
   return parser.parse(data)
 }
 
-export function getSubMaterials(mtl: MtlObject): MtlObject[] {
-  if (!mtl) {
-    return []
+export async function loadMtlFile(file: string, options: {
+  inputDir: string
+  catalog: Record<string, string>
+}): Promise<MtlObject[]> {
+  file = path.resolve(options.inputDir, file)
+  if (!fs.existsSync(file)) {
+    logger.warn(`Material does not exist: ${file}`)
+    return null
   }
-  if (!mtl.SubMaterials) {
-    return [mtl]
-  }
-  if (mtl.SubMaterials && typeof mtl.SubMaterials === 'object' && mtl.SubMaterials.Material) {
-    const subMaterials = mtl.SubMaterials.Material
-    if (Array.isArray(subMaterials)) {
-      return [...subMaterials]
+  const doc = await readMtlFile(file)
+  const materials = getMaterialList(doc?.Material)
+  for (const mtl of materials) {
+    for (const tex of getMaterialTextures(mtl)) {
+      if (!tex.File) {
+        continue
+      }
+      tex.File = resolveMtlTexturePath(tex, {
+        inputDir: options.inputDir,
+        catalog: options.catalog
+      }) || tex.File
     }
-    if (subMaterials) {
-      return [subMaterials]
-    }
   }
-  return []
+  return materials
 }

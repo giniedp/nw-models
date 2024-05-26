@@ -1,6 +1,10 @@
+import fs from 'node:fs'
+import path from 'node:path'
+import { replaceExtname } from '../../utils'
+import { parseAssetUUID } from '../catalog/utils'
 import { MtlObject, MtlTexture } from './types'
 
-export function getMtlTextures(mtl: MtlObject): MtlTexture[] {
+export function getMaterialTextures(mtl: MtlObject): MtlTexture[] {
   if (!mtl || !mtl.Textures) {
     return []
   }
@@ -38,4 +42,72 @@ export function getMaterialParamVec(mtl: MtlObject, key: keyof MtlObject) {
     return factor
   }
   return null
+}
+
+export function resolveMtlTexturePath(
+  tex: MtlTexture,
+  options: {
+    inputDir: string
+    catalog: Record<string, string>
+  },
+): string {
+  if (!tex?.File) {
+    return null
+  }
+
+  let file = tex.File
+  if (fs.existsSync(path.resolve(options.inputDir, file))) {
+    return file
+  }
+
+  file = replaceExtname(file, '.dds')
+  if (fs.existsSync(path.resolve(options.inputDir, file))) {
+    return file
+  }
+
+  const assetId = parseAssetUUID(tex.AssetId, {
+    normalize: true,
+  })
+  if (!assetId) {
+    return null
+  }
+
+  file = options.catalog[assetId]
+  if (!file) {
+    return null
+  }
+  if (path.extname(file).match(/^\.\d+$/)) {
+    // foo.dds.5 -> foo.dds
+    file = replaceExtname(file, '')
+  }
+  if (fs.existsSync(path.resolve(options.inputDir, file))) {
+    return file
+  }
+
+  file = replaceExtname(file, '.dds')
+  if (fs.existsSync(path.resolve(options.inputDir, file))) {
+    return file
+  }
+
+  return null
+}
+
+
+export function getMaterialList(mtl: MtlObject): MtlObject[] {
+  if (!mtl) {
+    return []
+  }
+  if (!mtl.SubMaterials) {
+    return [mtl]
+  }
+  if (mtl.SubMaterials && typeof mtl.SubMaterials === 'object' && mtl.SubMaterials.Material) {
+    const subMaterials = mtl.SubMaterials.Material
+    if (Array.isArray(subMaterials)) {
+      return [...subMaterials]
+    }
+    if (subMaterials) {
+      return [subMaterials]
+    }
+  }
+  return []
 }

@@ -1,8 +1,8 @@
 import { XMLParser } from 'fast-xml-parser'
-import * as fs from 'fs'
+import fs from 'node:fs'
 import { AnimDBDocument } from './types'
 
-const ARRAY_TAGS = ['Fragment', 'AnimLayer', 'ProcLayer', 'Animation', 'Blend', 'Procedural']
+const ARRAY_TAGS = ['Fragment', 'AnimLayer', 'ProcLayer', 'Animation', 'Blend', 'Procedural', 'SubADB']
 const parser = new XMLParser({
   preserveOrder: false,
   allowBooleanAttributes: true,

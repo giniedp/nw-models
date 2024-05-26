@@ -1,4 +1,4 @@
-import * as fs from 'fs'
+import fs from 'node:fs'
 import { BinaryReader } from '../cgf/binary-reader'
 
 export async function readTerrainDataFile(file: string): Promise<TerrainData> {

@@ -1,7 +1,7 @@
 import 'colors'
 import { program } from 'commander'
 import { cpus } from 'os'
-import * as path from 'path'
+import path from 'node:path'
 
 import { CONVERT_DIR, UNPACK_DIR } from '../env'
 import { datasheetConverter } from '../tools/datasheet-converter'

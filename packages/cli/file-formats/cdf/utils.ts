@@ -1,18 +1,18 @@
-import fs from 'fs'
-import path from 'path'
+import fs from 'node:fs'
+import path from 'node:path'
 import { glob, replaceExtname } from '../../utils'
 import { BspceDocument, readBspaceFile } from '../bspace'
 import { getChrParamsAnimationGlobs, readChrParamsFile } from '../chrparams'
 import { readCombFile } from '../comb'
 import { CombDocument } from '../comb/types'
 import { readCDF } from './reader'
-import { CharacterDefinition, SkinAttachment } from './types'
+import { CharacterDefinition, ClothAttachment, SkinAttachment } from './types'
 
 export function getCDFSkinsOrCloth(cdf: CharacterDefinition) {
   return toArray(cdf.AttachmentList.Attachment)
     .filter((it) => !!it)
     .filter((it) => it.Type === 'CA_CLOTH' || it.Type === 'CA_SKIN')
-    .map((it: SkinAttachment) => {
+    .map((it: SkinAttachment | ClothAttachment) => {
       return {
         model: it.Binding,
         material: it.Material,

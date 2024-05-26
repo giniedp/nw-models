@@ -1,5 +1,5 @@
 import { XMLParser } from 'fast-xml-parser'
-import * as fs from 'fs'
+import fs from 'node:fs'
 import { BspceDocument } from './types'
 
 const parser = new XMLParser({

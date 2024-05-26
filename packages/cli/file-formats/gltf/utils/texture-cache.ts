@@ -1,4 +1,4 @@
-import * as fs from 'fs'
+import fs from 'node:fs'
 import { Document, FileUtils, ImageUtils, Texture } from '@gltf-transform/core'
 
 export function textureCache(doc: Document) {

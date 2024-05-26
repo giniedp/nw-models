@@ -1,5 +1,5 @@
 import { XMLParser } from 'fast-xml-parser'
-import * as fs from 'fs'
+import fs from 'node:fs'
 
 export async function readLevelInfoFile(file: string): Promise<LevelInfoDocument> {
   const data = await fs.promises.readFile(file, { encoding: 'utf-8' })

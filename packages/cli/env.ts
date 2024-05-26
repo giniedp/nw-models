@@ -1,6 +1,6 @@
 import { config } from 'dotenv'
 import { expand } from 'dotenv-expand'
-import * as path from 'path'
+import path from 'node:path'
 
 expand(config())
 

@@ -1,6 +1,6 @@
 import { XMLParser } from 'fast-xml-parser'
-import * as fs from 'fs'
-import path from 'path'
+import fs from 'node:fs'
+import path from 'node:path'
 import { Animation, ChrParams, ChrParamsDocument } from './types'
 
 const parser = new XMLParser({

@@ -1,26 +1,29 @@
-import path from 'path'
-import { getAnimationActions, readAdbFile } from '../file-formats/adb'
+import path from 'node:path'
+import { AnimationAction } from '../file-formats/adb'
 import { getBspaceAnimations } from '../file-formats/bspace'
 import { CdfAnimationFile } from '../file-formats/cdf'
 import { ModelAnimation } from '../types'
 import { md5FromFile } from '../utils'
 
-export async function collectAnimations(options: {
-  inputDir: string
-  adbFile: string
+export interface CollectAnimationsOptions {
   animations: CdfAnimationFile[]
-}) {
+  actions: AnimationAction[]
+  filter?: (it: ModelAnimation) => boolean
+}
+export async function collectAnimations(options: CollectAnimationsOptions) {
   const groups: Record<string, ModelAnimation> = {}
   async function collect(file: string, action: string, damageIds: string[]) {
     const md5 = await md5FromFile(file)
     if (!groups[md5]) {
-      groups[md5] = {
+      const animation: ModelAnimation = {
         file: file,
         name: path.basename(file, path.extname(file)).toLowerCase(),
         damageIds: [],
         actions: [],
       }
+      groups[md5] = animation
     }
+
     const group = groups[md5]
     if (!group.actions.includes(action)) {
       group.actions.push(action)
@@ -32,8 +35,7 @@ export async function collectAnimations(options: {
     }
   }
 
-  const adb = await readAdbFile(path.resolve(options.inputDir, options.adbFile))
-  const actions = getAnimationActions(adb)
+  const actions = options.actions
   for (const action of actions) {
     for (const frag of action.fragments) {
       const damageIds = frag.damageIds || []
@@ -73,8 +75,10 @@ export async function collectAnimations(options: {
     }
   }
 
-  const result = Array.from(Object.values(groups))
-
+  let result = Array.from(Object.values(groups))
+  if (options.filter) {
+    result = result.filter(options.filter)
+  }
   for (const item of result) {
     item.meta = { actions: item.actions, damageIds: item.damageIds }
   }
