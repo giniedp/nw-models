@@ -4,7 +4,10 @@ import { z } from 'zod'
 export interface ModelAsset {
   appearance?: Appearance | boolean
   animations?: ModelAnimation[]
-  meshes: ModelMeshAsset[]
+  meshes: MeshAssetNode[]
+  lights?: LightAssetNode[]
+  cameras?: CameraAssetNode[]
+  entities?: AssetNode[]
   outFile: string
 }
 
@@ -16,12 +19,32 @@ export interface ModelAnimation {
   meta?: Record<string, any>
 }
 
-export interface ModelMeshAsset {
+export interface MeshAssetNode extends AssetNode {
   model: string
   material: string
-  ignoreSkin: boolean
-  ignoreGeometry: boolean
+  ignoreSkin?: boolean
+  ignoreGeometry?: boolean
+}
+
+export interface LightAssetNode extends AssetNode {
+  type: number
+  color: number[]
+  intensity: number
+  innerConeAngle: number
+  outerConeAngle: number
+  range: number
+}
+
+export interface CameraAssetNode extends AssetNode {
+  zNear: number
+  zFar: number
+  fov: number
+}
+
+export interface AssetNode {
+  name?: string
   transform: mat4
+  meta?: Record<string, any>
 }
 
 export const HousingTableSchema = z.array(
@@ -105,6 +128,7 @@ export interface ItemAppearanceDefinition extends AppearanceMaskProps {
   HideFacialHair: number
   HideLegs: number
   HideHead?: number
+  Gender: string,
 
   Skin1: string
   Material1: string

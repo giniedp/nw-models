@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { resolveCDFAsset } from '../file-formats/cdf'
 import { WeaponAppearanceDefinition } from '../types'
-import { logger, readJSONFile } from '../utils'
+import { logger, readJSONFile, replaceExtname } from '../utils'
 import { AssetCollector } from './collector'
 
 export interface CollectWeaponsOptions {
@@ -26,15 +26,17 @@ export async function collectWeaponAppearances(collector: AssetCollector, option
     if (options.filter && !options.filter(item)) {
       continue
     }
-
-    // HING: SkinOverride1 and SkinOverride2 are skipped here.
+    if (!item.MeshOverride) {
+      continue
+    }
+    // HING: SkinOverride1 and SkinOverride2 are ignored.
     // They are not useful for weapon appearances. Usually contain bow strings.
 
     let outFile = item.MeshOverride
     if (options.embedApperance) {
       outFile = path.join('weaponappearances', [item.WeaponAppearanceID, 'MeshOverride'].join('-'))
     }
-    if (item.MeshOverride && path.extname(item.MeshOverride) === '.cdf') {
+    if (path.extname(item.MeshOverride) === '.cdf') {
       const asset = await resolveCDFAsset(item.MeshOverride, {
         inputDir: collector.inputDir,
         skipAnimations: true,
@@ -60,7 +62,7 @@ export async function collectWeaponAppearances(collector: AssetCollector, option
         outFile,
       })
     }
-    if (item.MeshOverride && path.extname(item.MeshOverride) === '.cgf') {
+    if (path.extname(item.MeshOverride) === '.cgf') {
       await collector.collect({
         appearance: item,
         meshes: [

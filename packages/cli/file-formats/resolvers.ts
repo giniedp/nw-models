@@ -15,6 +15,9 @@ export function resolveAbsoluteTexturePath(file: string, options: { inputDir: st
   if (file.startsWith('/objects/')) {
     file = file.replace('/objects/', 'objects/')
   }
+  if (file.endsWith('.dds.dds')) {
+    file = file.replace(/\.dds$/, '')
+  }
   const candidates = [
     file,
     path.join(path.dirname(file), '..', 'textures', path.basename(file)),
@@ -72,11 +75,17 @@ export async function resolveMtlPath(fileOrFiles: string | string[], options: { 
     if (fs.existsSync(mtlFile)) {
       return file
     }
+    if (!path.extname(mtlFile) && fs.existsSync(mtlFile + '.mtl')) {
+      return file + '.mtl'
+    }
     // materials are sometimes referenced wrongly
     // - objects\weapons\melee\spears\2h\spearisabella\textures\wep_mel_spr_2h_spearisabella_matgroup.mtl
     // should be
     // - objects\weapons\melee\spears\2h\spearisabella\wep_mel_spr_2h_spearisabella_matgroup.mtl
-    const candiates = await glob([path.dirname(mtlFile) + '/**/' + path.basename(mtlFile)])
+    const candiates = await glob([
+
+      path.dirname(mtlFile) + '/**/' + path.basename(mtlFile)
+    ])
     if (candiates.length) {
       return path.relative(options.inputDir, candiates[0])
     }

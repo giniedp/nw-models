@@ -1,22 +1,24 @@
 import 'babylonjs'
 import { BABYLON } from 'babylonjs-viewer'
-import { NwOverlayMaskExtension } from './nw-overlay-mask-extension'
+import { NwMaterialExtension } from './nw-material-extension'
 import type { IColor3Like } from 'babylonjs/Maths/math.like'
 
-const NAME = 'NwOverlayMaskPlugin'
+const NAME = 'NwMaterialPlugin'
 
-BABYLON.RegisterMaterialPlugin(NAME, (material) => {
-  const instance = new NwOverlayMaskPlugin(material)
-  NwOverlayMaskPlugin.setPlugin(material, instance)
-  return instance
-})
+export function registerNwMaterialPlugin() {
+  BABYLON.RegisterMaterialPlugin(NAME, (material) => {
+    const instance = new NwMaterialPlugin(material)
+    NwMaterialPlugin.setPlugin(material, instance)
+    return instance
+  })
+}
 
-export class NwOverlayMaskPlugin extends BABYLON.MaterialPluginBase {
-  public static getPlugin(material: BABYLON.Material | null): NwOverlayMaskPlugin | null {
+export class NwMaterialPlugin extends BABYLON.MaterialPluginBase {
+  public static getPlugin(material: BABYLON.Material | null): NwMaterialPlugin | null {
     return (material as any)?.[NAME] || null
   }
 
-  public static setPlugin(material: BABYLON.Material, plugin: NwOverlayMaskPlugin) {
+  public static setPlugin(material: BABYLON.Material, plugin: NwMaterialPlugin) {
     Object.assign(material, {
       [NAME]: plugin,
     })
@@ -41,7 +43,7 @@ export class NwOverlayMaskPlugin extends BABYLON.MaterialPluginBase {
   public nwMaskGlossShift = 0.5
 
   public get nwMaskTexture() {
-    return NwOverlayMaskExtension.getMaskTexture(this._material)
+    return NwMaterialExtension.getMaskTexture(this._material)
   }
 
   public get isEnabled() {

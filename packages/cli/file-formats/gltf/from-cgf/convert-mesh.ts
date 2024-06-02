@@ -1,7 +1,7 @@
 import { Accessor, Document, Material } from '@gltf-transform/core'
-import { MeshSubset } from 'file-formats/cgf/chunks/types'
-import { BinaryReader } from '../../cgf/binary-reader'
+import { BinaryReader } from '../../../utils/binary-reader'
 import { ChunkMesh, isChunkDataStream, isChunkMeshSubsets, isChunkMtlName } from '../../cgf/chunks'
+import { MeshSubset } from '../../cgf/chunks/types'
 import { Chunk, DataStreamType } from '../../cgf/types'
 import { cryToGltfQuatTypedArray, cryToGltfVec3TypedArray } from '../utils/math'
 

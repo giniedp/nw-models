@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 
 import { logger } from '../../utils/logger'
-import { BinaryReader } from './binary-reader'
+import { BinaryReader } from '../../utils/binary-reader'
 import { isChunkMtlName, readChunk, readChunkHeader } from './chunks'
 import { Chunk, ChunkHeader, ChunkType, FileHeader, FileVersion } from './types'
 

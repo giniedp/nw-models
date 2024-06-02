@@ -2,13 +2,22 @@ import 'babylonjs'
 import 'babylonjs-loaders'
 import { BABYLON, GLTF2 } from 'babylonjs-viewer'
 
-const NAME = 'NwOverlayMaskExtension'
+const NAME = 'NwMaterialExtension'
+const EXTENSION_NAME = 'EXT_nw_material'
+interface ExtensionData {
+  params: Record<string, any>
+  maskTexture: GLTF2.ITextureInfo
+}
 
 GLTF2.GLTFLoader.RegisterExtension(NAME, (loader) => {
-  return new NwOverlayMaskExtension(loader)
+  return new NwMaterialExtension(loader)
 })
 
-export class NwOverlayMaskExtension implements GLTF2.IGLTFLoaderExtension {
+function getExtensionData(material: GLTF2.IMaterial): ExtensionData {
+  return material?.extensions?.[EXTENSION_NAME]
+}
+
+export class NwMaterialExtension implements GLTF2.IGLTFLoaderExtension {
   public static getMaskTexture(object: any): BABYLON.BaseTexture | null {
     return object?.maskTexture
   }
@@ -43,8 +52,8 @@ export class NwOverlayMaskExtension implements GLTF2.IGLTFLoaderExtension {
     assign: (babylonMaterial: BABYLON.Material) => void,
   ): Promise<BABYLON.Material> {
 
-    const ext = material?.extensions?.EXT_nw_overlay_mask
-    const appearance = ext?.data
+    const ext = getExtensionData(material)
+    const params = ext?.params
     let maskTextureInfo = ext?.maskTexture as GLTF2.ITextureInfo
     let maskTexture: BABYLON.BaseTexture | null
 
@@ -52,7 +61,7 @@ export class NwOverlayMaskExtension implements GLTF2.IGLTFLoaderExtension {
     //   calling loadTextureInfoAsync here produces an infinite loop, yet i can not find a way to load a texture otherwise
     //   abuse the mesh to hold the mask texture and prevent infinite loop
     const marker = 'skipMaskTexture'
-    maskTexture = NwOverlayMaskExtension.getMaskTexture(babylonMesh)
+    maskTexture = NwMaterialExtension.getMaskTexture(babylonMesh)
 
     if (!maskTexture && (maskTextureInfo?.index >= 0) && !((babylonMesh as any)[marker])) {
       maskTexture = await this.loader
@@ -63,16 +72,16 @@ export class NwOverlayMaskExtension implements GLTF2.IGLTFLoaderExtension {
           console.error(err)
           return null
         })
-      NwOverlayMaskExtension.setMaskTexture(babylonMesh, maskTexture || null)
+      NwMaterialExtension.setMaskTexture(babylonMesh, maskTexture || null)
       Object.assign(babylonMesh as any, { [marker]: true })
     }
 
     return this.loader._loadMaterialAsync(context, material, babylonMesh, babylonDrawMode, (babylonMaterial) => {
       if (maskTexture) {
-        NwOverlayMaskExtension.setMaskTexture(babylonMaterial, maskTexture || null)
+        NwMaterialExtension.setMaskTexture(babylonMaterial, maskTexture || null)
       }
-      if (appearance) {
-        NwOverlayMaskExtension.setAppearance(babylonMaterial, appearance || null)
+      if (params) {
+        NwMaterialExtension.setAppearance(babylonMaterial, params || null)
       }
       return assign(babylonMaterial)
     })

@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { copyDdsFile, ddsToPng } from '../file-formats/dds/converter'
+import { copyDdsFile, ddsToPng } from '../file-formats/dds'
 import { resolveAbsoluteTexturePath } from '../file-formats/resolvers'
 import { logger } from '../utils/logger'
 
@@ -13,7 +13,6 @@ export type ProcessTextureOptions = {
 }
 
 export async function processTexture({ inputDir, outputDir, texture, texSize, update }: ProcessTextureOptions) {
-
   const inputFile = resolveAbsoluteTexturePath(texture, { inputDir })
   if (!inputFile) {
     logger.warn(`texture not found`, texture)

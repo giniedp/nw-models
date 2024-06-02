@@ -1,10 +1,13 @@
 import path from 'node:path'
-import { CharacterDefinition, getCDFSkinsOrCloth, readCDF } from '../file-formats/cdf'
-import { ItemAppearanceDefinition, ModelMeshAsset } from '../types'
+import { CharacterDefinition, getCDFSkinsOrCloth, readCDF, resolveCDFAsset } from '../file-formats/cdf'
+import { DEFAULT_MATERIAL } from '../file-formats/resolvers'
+import { ItemAppearanceDefinition, MeshAssetNode } from '../types'
 import { glob, logger, readJSONFile } from '../utils'
 import { AssetCollector } from './collector'
 
 export interface CollectItemsOptions {
+  maleChrFile?: string
+  femaleChrFile?: string
   filter?: (item: ItemAppearanceDefinition) => boolean
 }
 
@@ -22,6 +25,9 @@ export async function collectItemAppearances(collector: AssetCollector, options:
   // ShortsleeveChestSkin is alternative to Skin1 e.g. for chest pieces when the arms are covered with gloves
   // AppearanceCDF is on chest pieces only but contains full gearset character. This is where Skirt and Cape geometry is to find.
 
+  const maleChr = await getCharacterBones(options.maleChrFile, collector)
+  const femaleChr = await getCharacterBones(options.femaleChrFile, collector)
+
   const outDir = 'itemappearances'
   for (const item of table) {
     if (options.filter && !options.filter(item)) {
@@ -32,7 +38,14 @@ export async function collectItemAppearances(collector: AssetCollector, options:
       continue
     }
 
-    const attachments: ModelMeshAsset[] = await getCloth(item, collector)
+    const attachments: MeshAssetNode[] = await getCloth(item, collector)
+    const gender = item.Gender?.toLowerCase()
+    if (gender === 'male' && maleChr) {
+      attachments.unshift(...maleChr)
+    }
+    if (gender === 'female' && femaleChr) {
+      attachments.unshift(...femaleChr)
+    }
     if (item.Skin1) {
       await collector.collect({
         appearance: item,
@@ -69,7 +82,7 @@ export async function collectItemAppearances(collector: AssetCollector, options:
 }
 
 async function getCloth(item: ItemAppearanceDefinition, options: { inputDir: string }) {
-  const result: Array<ModelMeshAsset> = []
+  const result: Array<MeshAssetNode> = []
   if (!item.AppearanceCDF) {
     return result
   }
@@ -94,5 +107,45 @@ async function getCloth(item: ItemAppearanceDefinition, options: { inputDir: str
       transform: null,
     })
   }
+  return result
+}
+
+async function getCharacterBones(chrFile: string, options: { inputDir: string }): Promise<MeshAssetNode[]> {
+  const result: MeshAssetNode[] = []
+  if (!chrFile) {
+    return result
+  }
+
+  if (path.extname(chrFile) === '.cdf') {
+    const asset = await resolveCDFAsset(chrFile, options)
+    result.push({
+      model: asset.model,
+      material: DEFAULT_MATERIAL,
+      ignoreGeometry: true,
+      ignoreSkin: false,
+      transform: null,
+    })
+    for (const mesh of asset.meshes) {
+      result.push({
+        model: mesh.model,
+        material: DEFAULT_MATERIAL,
+        ignoreGeometry: true,
+        ignoreSkin: false,
+        transform: null,
+      })
+    }
+    return result
+  }
+
+  if (!chrFile || !chrFile.endsWith('.chr')) {
+    return result
+  }
+  result.push({
+    model: chrFile,
+    material: null,
+    ignoreGeometry: true,
+    ignoreSkin: false,
+    transform: null,
+  })
   return result
 }

@@ -1,32 +1,32 @@
 import { ExtensionProperty, IProperty, Nullable, PropertyType, Texture, TextureChannel, TextureInfo } from '@gltf-transform/core'
-import { EXT_NW_OVERLAY_MASK } from './constants'
+import { EXT_NW_MATERIAL } from './constants'
 
-interface INwAppearance extends IProperty {
-  data: any
+export interface INwMaterialProperty extends IProperty {
+  params: Record<string, any>
   maskTexture: Texture
   maskTextureInfo: TextureInfo
 }
 
-export class NwAppearanceProperties extends ExtensionProperty<INwAppearance> {
-  public static EXTENSION_NAME = EXT_NW_OVERLAY_MASK
-  public declare extensionName: typeof EXT_NW_OVERLAY_MASK
-  public declare propertyType: 'appearance'
+export class NwMaterialProperty extends ExtensionProperty<INwMaterialProperty> {
+  public static EXTENSION_NAME = EXT_NW_MATERIAL
+  public declare extensionName: typeof EXT_NW_MATERIAL
+  public declare propertyType: 'NewWorldMaterial'
   public declare parentTypes: [PropertyType.MATERIAL]
 
   protected init(): void {
-    this.extensionName = EXT_NW_OVERLAY_MASK
-    this.propertyType = 'appearance'
+    this.extensionName = EXT_NW_MATERIAL
+    this.propertyType = 'NewWorldMaterial'
     this.parentTypes = [PropertyType.MATERIAL]
   }
 
-  protected getDefaults(): Nullable<INwAppearance> {
+  protected getDefaults(): Nullable<INwMaterialProperty> {
     const ti = new TextureInfo(this.graph, 'textureInfo')
     ti.setMinFilter(9986)
     ti.setMagFilter(9729)
     ti.setWrapT(10497)
     ti.setWrapS(10497)
     return Object.assign(super.getDefaults() as IProperty, {
-      data: null,
+      params: null,
       maskTexture: null,
       maskTextureInfo: ti,
     })
@@ -44,11 +44,11 @@ export class NwAppearanceProperties extends ExtensionProperty<INwAppearance> {
     return this.getRef('maskTexture') ? this.getRef('maskTextureInfo') : null
   }
 
-  public getData(): any {
-    return this.get('data')
+  public getParams(): Record<string, any> {
+    return this.get('params')
   }
 
-  public setData(data: any): this {
-    return this.set('data', data)
+  public setParams(params: Record<string, any>): this {
+    return this.set('params', params)
   }
 }

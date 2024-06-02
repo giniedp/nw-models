@@ -1,5 +1,5 @@
 import { DEFAULT_MATERIAL, resolveCgfPath, resolveMtlFromCgf, resolveMtlPath } from '../file-formats/resolvers'
-import { ModelAsset, ModelMeshAsset } from '../types'
+import { MeshAssetNode, ModelAsset } from '../types'
 import { CaseInsensitiveMap } from '../utils/caseinsensitive-map'
 import { logger } from '../utils/logger'
 
@@ -21,7 +21,7 @@ export interface AssetCollector {
 }
 
 export function assetCollector({ inputDir, tablesDir, slicesDir, catalog, modelFormat }: AssetCollectorOptions) {
-  const assets = new CaseInsensitiveMap<string, ModelAsset>()
+  const models = new CaseInsensitiveMap<string, ModelAsset>()
 
   async function collect({
     appearance,
@@ -29,10 +29,13 @@ export function assetCollector({ inputDir, tablesDir, slicesDir, catalog, modelF
     outFile,
     fallbackMaterial,
     animations,
+    lights,
+    cameras,
+    entities,
   }: ModelAsset & { fallbackMaterial?: string }) {
     const refId = outFile
-    const resolvedMeshes: ModelMeshAsset[] = []
-    if (assets.has(refId)) {
+    const resolvedMeshes: MeshAssetNode[] = []
+    if (models.has(refId)) {
       logger.warn(`skipped duplicate asset: ${refId}`)
       return
     }
@@ -69,10 +72,13 @@ export function assetCollector({ inputDir, tablesDir, slicesDir, catalog, modelF
     if (!resolvedMeshes.length) {
       return
     }
-    assets.set(refId, {
+    models.set(refId, {
+      lights: lights,
+      cameras: cameras,
+      entities: entities,
+      meshes: resolvedMeshes,
       animations: animations,
       appearance: appearance,
-      meshes: resolvedMeshes,
       outFile: outFile + '.' + modelFormat,
     })
   }
@@ -81,7 +87,7 @@ export function assetCollector({ inputDir, tablesDir, slicesDir, catalog, modelF
     tablesDir,
     slicesDir,
     catalog,
-    assets: () => Array.from(assets.values()),
-    collect,
+    assets: () => Array.from(models.values()),
+    collect: collect,
   } satisfies AssetCollector
 }

@@ -1,3 +1,4 @@
+import { replaceExtname } from '../utils/file-utils'
 import { AssetCollector } from './collector'
 
 export interface CollectCgfOptions {
@@ -34,7 +35,7 @@ export async function collectCgf(collector: AssetCollector, options: CollectCgfO
             transform: null,
           },
         ],
-        outFile: file,
+        outFile: replaceExtname(file, '').toLowerCase(),
       })
     }
   }

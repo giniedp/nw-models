@@ -4,7 +4,7 @@
   "scripts": {
     "dev": "tsc -w",
     "build": "tsc -p ./tsconfig.json",
-    "test": "globstar -- node --loader tsx --test \"./**/*.spec.ts\""
+    "test": "globstar -- node --import tsx --test \"./**/*.spec.ts\""
   },
   "nx": {
     "targets": {

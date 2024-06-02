@@ -1,4 +1,4 @@
-import { Document, Texture, vec3, vec4 } from '@gltf-transform/core'
+import { Document, Texture, vec3 } from '@gltf-transform/core'
 import {
   KHRMaterialsPBRSpecularGlossiness,
   KHRMaterialsTransmission,
@@ -6,37 +6,32 @@ import {
   PBRSpecularGlossiness,
 } from '@gltf-transform/extensions'
 import { createTransform } from '@gltf-transform/functions'
-import fs from 'node:fs'
 import { isFinite } from 'lodash'
-import {
-  MtlObject,
-  MtlShader,
-  getMaterialParamNum,
-  getMaterialParamVec,
-  getMaterialTextures,
-} from '../../../file-formats/mtl'
+import fs from 'node:fs'
 import { Appearance } from '../../../types'
 import { replaceExtname } from '../../../utils/file-utils'
+import { MtlObject, MtlShader, getMaterialParamNum, getMaterialParamVec, getMaterialTextures } from '../../mtl'
 
+import sharp from 'sharp'
 import { getMtlObject } from '../utils/annotation'
 import { textureCache } from '../utils/texture-cache'
 import { textureMerge } from '../utils/texture-merge'
-import { NwAppearanceExtension } from './nw-appearance-extension'
+import { NwMaterialExtension } from './extension'
 
-export interface NwAppearanceOptions {
+export interface NwMaterialOptions {
   appearance: Appearance | boolean
 }
 
-export function nwAppearance(options: NwAppearanceOptions) {
-  return createTransform('nw-appearance', async (doc: Document) => {
+export function nwMaterial(options: NwMaterialOptions) {
+  return createTransform('nw-material', async (doc: Document) => {
     await transformMaterials(doc, options)
   })
 }
 
-async function transformMaterials(doc: Document, { appearance }: NwAppearanceOptions) {
+async function transformMaterials(doc: Document, { appearance }: NwMaterialOptions) {
   const logger = doc.getLogger() as typeof console
   const root = doc.getRoot()
-  const debug = false
+  const debug = true
   if (!root.listMaterials()?.length) {
     return
   }
@@ -50,6 +45,7 @@ async function transformMaterials(doc: Document, { appearance }: NwAppearanceOpt
     'GeometryBeamSimple',
     'Geometrybeamsimple',
     'Meshparticle',
+    'Geometryfog',
   ]
   for (const mesh of root.listMeshes()) {
     for (const prim of mesh.listPrimitives()) {
@@ -93,22 +89,23 @@ async function transformMaterials(doc: Document, { appearance }: NwAppearanceOpt
     let mapSmoothness = mtlTextures.find((it) => it.Map === 'Smoothness')
     let mapSpecular = mtlTextures.find((it) => it.Map === 'Specular')
     let mapCustom = mtlTextures.find((it) => it.Map === 'Custom')
-    const mapEmittance = mtlTextures.find((it) => it.Map === 'Emittance')
-    const mapOpacity = mtlTextures.find((it) => it.Map === 'Opacity')
-    const mapDecal = mtlTextures.find((it) => it.Map === 'Decal')
+    let mapEmittance = mtlTextures.find((it) => it.Map === 'Emittance')
+    let mapOpacity = mtlTextures.find((it) => it.Map === 'Opacity')
+    let mapDecal = mtlTextures.find((it) => it.Map === 'Decal')
     const isGlass = mtl?.Shader === 'Glass'
     const isHair = mtl?.Shader === 'Hair'
     const isFxTransp = mtl?.Shader === 'Fxmeshadvancedtransp' // only isabella gaze has this shader
 
     const features = mtl.StringGenMask?.split('%') || []
-    const featureOverlayMask = features.includes('OVERLAY_MASK')
-    const featureEmissiveDecal = features.includes('EMISSIVE_DECAL')
-    const featureTintColorMap = features.includes('TINT_COLOR_MAP')
+    const shaderOverlayMask = features.includes('OVERLAY_MASK')
+    const shaderEmittanceMap = features.includes('EMITTANCE_MAP')
+    const shaderEmissiveDecal = features.includes('EMISSIVE_DECAL')
+    const shaderTintColorMap = features.includes('TINT_COLOR_MAP')
 
     if (givenAppearance || givenAppearance === false) {
       // armor items, mounts, weapons have a custom appearance definitions
       appearance = givenAppearance
-    } else if (featureOverlayMask) {
+    } else if (shaderOverlayMask) {
       // resolve appearance params from the material
       appearance = mtlParamsToAppearance(mtl)
     } else {
@@ -146,18 +143,19 @@ async function transformMaterials(doc: Document, { appearance }: NwAppearanceOpt
     let texSpecular: Texture
 
     if (!mapSmoothness && mapBumpmap) {
-      logger.debug('use mapBumpmap as mapSmoothness')
       mapSmoothness = mapBumpmap
     }
-
-    if (isFxTransp && !mapDiffuse) {
+    if (isFxTransp && !mapDiffuse?.File) {
       mapDiffuse = mapCustom
       mapCustom = null
     }
-
-    if (featureTintColorMap && !mapDiffuse) {
+    if (shaderTintColorMap && !mapDiffuse?.File) {
       mapDiffuse = mapCustom
       mapCustom = null
+    }
+    if (shaderEmissiveDecal && !mapEmittance?.File) {
+      mapEmittance = mapDecal
+      mapDecal = null
     }
 
     if (mapDiffuse?.File) {
@@ -206,7 +204,7 @@ async function transformMaterials(doc: Document, { appearance }: NwAppearanceOpt
         })
     }
 
-    if (mapEmittance?.File && mapDecal?.File) {
+    if (shaderEmissiveDecal && mapEmittance?.File && mapDecal?.File) {
       const key = `${mapEmittance.File} ${mapDecal?.File}`.toLowerCase()
       texEmissive = await cache
         .addTexture(key, async () => {
@@ -226,7 +224,7 @@ async function transformMaterials(doc: Document, { appearance }: NwAppearanceOpt
           return null
         })
     }
-    if (!texEmissive && mapEmittance?.File) {
+    if ((shaderEmissiveDecal || shaderEmittanceMap) && !texEmissive && mapEmittance?.File) {
       const key = mapEmittance.File.toLowerCase()
       texEmissive = await cache.addTextureFromFile(key, mapEmittance.Map).catch((err) => {
         logger.error(`failed to read emittance map\n\t${mapEmittance.File}\n`, err)
@@ -263,8 +261,8 @@ async function transformMaterials(doc: Document, { appearance }: NwAppearanceOpt
       texTransformProps = props
     }
 
-    if (mtlDiffuse && mtlDiffuse.length === 4) {
-      material.setBaseColorFactor(mtlDiffuse as vec4)
+    if (mtlDiffuse && mtlDiffuse.length >= 3) {
+      material.setBaseColorFactor([mtlDiffuse[0] ?? 0, mtlDiffuse[1] ?? 0, mtlDiffuse[2] ?? 0, mtlDiffuse[3] ?? 1])
     }
     if (texDiffuse) {
       material.setMetallicFactor(0)
@@ -295,8 +293,8 @@ async function transformMaterials(doc: Document, { appearance }: NwAppearanceOpt
       if (mtlSpecular && mtlSpecular.length >= 3) {
         props.setSpecularFactor(mtlSpecular.slice(0, 3) as vec3)
       }
-      if (mtlDiffuse && mtlDiffuse.length === 4) {
-        props.setDiffuseFactor(mtlDiffuse as vec4)
+      if (mtlDiffuse && mtlDiffuse.length >= 3) {
+        props.setDiffuseFactor([mtlDiffuse[0] ?? 0, mtlDiffuse[1] ?? 0, mtlDiffuse[2] ?? 0, mtlDiffuse[3] ?? 1])
       }
       material.setExtension(specExt.extensionName, props)
 
@@ -313,7 +311,7 @@ async function transformMaterials(doc: Document, { appearance }: NwAppearanceOpt
       material.setEmissiveTexture(texEmissive)
       material.setEmissiveFactor([1, 1, 1])
     }
-    if ((isFxTransp || texEmissive) && !featureEmissiveDecal && mtlEmittance && mtlEmittance.length >= 3) {
+    if ((isFxTransp || texEmissive) && !shaderEmissiveDecal && mtlEmittance && mtlEmittance.length >= 3) {
       // emittance seems to be only used for the intensity of the emissive texture
       // the alpha channel has a range of 0-20000, which we bring down with a log scale
       const value = [...mtlEmittance]
@@ -350,17 +348,17 @@ async function transformMaterials(doc: Document, { appearance }: NwAppearanceOpt
       material.setDoubleSided(true)
     }
 
-    if (texCustom && appearance != null) {
-      const extension = doc.createExtension(NwAppearanceExtension)
+    if (shaderOverlayMask && texCustom && appearance != null) {
+      const extension = doc.createExtension(NwMaterialExtension)
       extension.setRequired(false)
       const props = extension.createProps()
       if (typeof appearance === 'object') {
-        props.setData({
+        props.setParams({
           ...appearance,
         })
       }
       props.setMaskTexture(texCustom)
-      material.setExtension(NwAppearanceExtension.EXTENSION_NAME, props)
+      material.setExtension(NwMaterialExtension.EXTENSION_NAME, props)
     }
   }
 }

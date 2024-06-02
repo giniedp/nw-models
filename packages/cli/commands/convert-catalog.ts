@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { CONVERT_DIR, UNPACK_DIR } from '../env'
-import { BinaryReader } from '../file-formats/cgf/binary-reader'
+import { BinaryReader } from '../utils/binary-reader'
 import { logger, writeFile } from '../utils'
 
 program

@@ -1,7 +1,6 @@
-import { chunk, partition } from 'lodash'
-import { BinaryReader } from '../binary-reader'
+import { BinaryReader } from '../../../utils/binary-reader'
+import { logger } from '../../../utils/logger'
 import { Chunk, ChunkHeader, ChunkType } from '../types'
-import { logger } from '../../../utils'
 
 export type ChunkReaderFn<T extends Chunk = Chunk> = (reader: BinaryReader, output: T) => Promise<T>
 export interface ChunkRegisty<T extends Chunk = Chunk> {

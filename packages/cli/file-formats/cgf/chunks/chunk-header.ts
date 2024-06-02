@@ -1,4 +1,4 @@
-import { BinaryReader } from '../binary-reader'
+import { BinaryReader } from '../../../utils/binary-reader'
 import { ChunkHeader, ChunkType, FileHeader } from '../types'
 
 export function readChunkHeader(reader: BinaryReader, header: FileHeader): ChunkHeader {

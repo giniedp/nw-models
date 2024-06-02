@@ -31,9 +31,9 @@ export type ProcessModelOptions = ModelAsset & {
   catalogFile: string
   update: boolean
   embed: boolean
-  webp?: boolean
   draco?: boolean
-  ktx?: boolean
+  textureFormat?: 'jpeg' | 'png' | 'webp' | 'avif'
+  textureQuality?: number
 }
 
 const cache: Record<string, any> = {}
@@ -47,6 +47,9 @@ async function loadCatalog(file: string) {
 
 export async function processModel({
   meshes,
+  lights,
+  cameras,
+  entities,
   appearance,
   inputDir,
   convertDir,
@@ -56,8 +59,8 @@ export async function processModel({
   outFile,
   embed,
   draco,
-  webp,
-  ktx,
+  textureFormat,
+  textureQuality,
   animations,
 }: ProcessModelOptions) {
   if (!meshes?.length) {
@@ -81,11 +84,14 @@ export async function processModel({
   await createGltf({
     animations: animations,
     meshes: meshes,
+    lights: lights,
+    cameras: cameras,
+    entities: entities,
     output: outputFile,
     appearance: appearance,
     withDraco: draco,
-    withWebp: webp,
-    withKtx: ktx,
+    textureFormat,
+    textureQuality,
     embedData: embed,
     resolveCgf: async (file) => readCgf(path.join(inputDir, file), true),
     resolveMtl: async (file) =>

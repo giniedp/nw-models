@@ -7,4 +7,5 @@ import './commands/convert-tables'
 import './commands/unpack'
 import './commands/viewer'
 import './commands/env'
+import './commands/ktx'
 program.parse(process.argv)

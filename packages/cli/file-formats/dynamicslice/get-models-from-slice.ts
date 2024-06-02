@@ -1,5 +1,5 @@
 import { mat4 } from '@gltf-transform/core'
-import { ModelMeshAsset } from '../../types'
+import { MeshAssetNode } from '../../types'
 import {
   AZ__Entity,
   isAZ__Entity,
@@ -13,7 +13,7 @@ import {
 import { getAssetPath, getTransformMatrix } from './utils'
 
 export async function getModelsFromSlice({ slice, catalog }: { slice: Object; catalog: Record<string, string> }) {
-  const result: ModelMeshAsset[] = []
+  const result: MeshAssetNode[] = []
 
   if (!isAZ__Entity(slice)) {
     return result
@@ -32,7 +32,7 @@ export async function getModelsFromSlice({ slice, catalog }: { slice: Object; ca
 export async function getModelFromSliceEntity(
   entity: AZ__Entity,
   catalog: Record<string, string>,
-): Promise<ModelMeshAsset> {
+): Promise<MeshAssetNode> {
   let model: string = null
   let material: string = null
   let transform: mat4 = null

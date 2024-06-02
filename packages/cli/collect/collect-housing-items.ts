@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { getModelsFromCdf } from '../file-formats/cdf'
 import { getModelsFromSlice } from '../file-formats/dynamicslice'
-import { HousingTableSchema, Housingitems, ModelMeshAsset } from '../types'
+import { HousingTableSchema, Housingitems, MeshAssetNode } from '../types'
 import { glob, logger, readJSONFile } from '../utils'
 import { AssetCollector } from './collector'
 
@@ -29,7 +29,7 @@ export async function collectHousingItems(collector: AssetCollector, options: Co
         logger.warn('missing slice', sliceFile)
         continue
       }
-      const meshes = await getMeshesFromSlice(sliceFile, collector).catch((err): ModelMeshAsset[] => {
+      const meshes = await getMeshesFromSlice(sliceFile, collector).catch((err): MeshAssetNode[] => {
         logger.error(err)
         return []
       })
@@ -60,7 +60,7 @@ async function getMeshesFromSlice(
     slice: sliceJSON,
     catalog: options.catalog,
   })
-  const result: ModelMeshAsset[] = []
+  const result: MeshAssetNode[] = []
 
   for (const { model, material, transform } of meshes) {
     if (!model) {

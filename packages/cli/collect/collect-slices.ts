@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { getAssetPath, getModelFromSliceEntity, walkSlice } from '../file-formats/dynamicslice'
 import { AZ__Entity, isPrefabSpawnerComponent } from '../file-formats/dynamicslice/types'
-import { ModelMeshAsset } from '../types'
+import { MeshAssetNode } from '../types'
 import { logger, replaceExtname } from '../utils'
 import { AssetCollector } from './collector'
 
@@ -18,7 +18,7 @@ export async function collectSlices(collector: AssetCollector, options: CollectS
   const inputDir = collector.inputDir
   const convertDir = options.convertDir
   for (const file of options.files) {
-    const result: ModelMeshAsset[] = []
+    const result: MeshAssetNode[] = []
     const sliceFile = path.resolve(convertDir, file)
     await walkSlice(sliceFile, async (entry, transform, addSlice) => {
       const meshes = await getMeshesFromEntity(entry.entity, {
@@ -69,7 +69,7 @@ async function getMeshesFromEntity(
     transform: number[]
   },
 ) {
-  const result: ModelMeshAsset[] = []
+  const result: MeshAssetNode[] = []
   const asset = await getModelFromSliceEntity(entity, options.catalog)
   if (!asset) {
     return result

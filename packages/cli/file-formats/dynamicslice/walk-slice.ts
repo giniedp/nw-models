@@ -20,7 +20,7 @@ export interface WalkEntry {
 export type WalkCallback = (entry: WalkEntry, transform: mat4, add: (file: string) => void) => Promise<void>
 
 export async function walkSlice(file: string, cb: WalkCallback, transform: mat4 = mat4Identity()) {
-  logger.debug('walk slice', file)
+  // logger.debug('walk slice', file)
   if (!fs.existsSync(file)) {
     logger.warn('file not found', file)
     return

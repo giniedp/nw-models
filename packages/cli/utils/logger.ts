@@ -1,26 +1,45 @@
-import c from 'ansi-colors'
+import * as c from 'ansi-colors'
 export type COLOR = 'black' | 'red' | 'green' | 'yellow' | 'blue' | 'magenta' | 'cyan' | 'white'
 
-let isEnabled = !!process.env.NW_MODELS_VERBOSE
+let isEnabled = true
+
+const tags = {
+  info: c.bgGreen.black('[INFO]'),
+  success: c.bgGreen.black('[SUCCESS]'),
+  debug: c.bgCyan.black('[DEBUG]'),
+  warn: c.bgYellow.black('[WARN]'),
+  error: c.bgRed.black('[ERROR]'),
+}
+let redirect: typeof console.log
+
+function log(...msg: any[]) {
+  if (!isEnabled) {
+    return
+  }
+  if (redirect) {
+    redirect(...msg)
+    return
+  }
+  console.log(...msg)
+}
 
 export const logger = {
   ansi: c,
-  activity: (tag: string, ...msg: any[]) => (isEnabled ? console.log(c.magenta(tag), ...msg) : null),
-  info: (...msg: any[]) => (isEnabled ? console.log(c.bgGreen.black('[INFO]'), ...msg) : null),
-  success: (...msg: any[]) => (isEnabled ? console.log(c.bgGreen.black('[SUCCESS]'), ...msg) : null),
-  debug: (...msg: any[]) => (isEnabled ? console.log(c.bgCyan.black('[DEBUG]'), ...msg) : null),
+  log: log,
+  activity: (tag: string, ...msg: any[]) => log(c.magenta(tag), ...msg),
+  info: (...msg: any[]) => log(tags.info, ...msg),
+  success: (...msg: any[]) => log(tags.success, ...msg),
+  debug: (...msg: any[]) => log(tags.debug, ...msg),
 
-  warn: (...msg: any[]) => console.log(c.bgYellow.black('[WARN]'), ...msg),
-  error: (...msg: any[]) => console.log(c.bgRed.black('[ERROR]'), ...msg),
-
+  warn: (...msg: any[]) => log(tags.warn, ...msg),
+  error: (...msg: any[]) => log(tags.error, ...msg),
+  redirect: (log: typeof console.log) => {
+    redirect = log
+  },
   verbose: (enabled: boolean) => {
     isEnabled = enabled
-    if (enabled) {
-      process.env.NW_MODELS_VERBOSE = 'true'
-    } else {
-      delete process.env.NW_MODELS_VERBOSE
-    }
   },
+
   get isVerbose() {
     return isEnabled
   },

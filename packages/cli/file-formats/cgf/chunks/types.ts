@@ -1,4 +1,4 @@
-import { BinaryReader } from '../binary-reader'
+import { BinaryReader } from '../../../utils/binary-reader'
 
 export enum ECompressionFormat {
   NoCompress = 0,

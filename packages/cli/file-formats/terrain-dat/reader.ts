@@ -1,5 +1,5 @@
 import fs from 'node:fs'
-import { BinaryReader } from '../cgf/binary-reader'
+import { BinaryReader } from '../../utils/binary-reader'
 
 export async function readTerrainDataFile(file: string): Promise<TerrainData> {
   const buffer = await fs.promises.readFile(file)

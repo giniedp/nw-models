@@ -2,7 +2,7 @@ import { Document, Texture } from '@gltf-transform/core'
 import { PBRSpecularGlossiness } from '@gltf-transform/extensions'
 import { createTransform } from '@gltf-transform/functions'
 import { BinaryLike, createHash } from 'crypto'
-import { NwAppearanceProperties } from '../extensions/properties'
+import { NwMaterialProperty } from '../nw-material/properties'
 
 const NAME = 'uniqTextures'
 export function uniqTextures() {
@@ -21,7 +21,7 @@ export function uniqTextures() {
       .sort((a, b) => a.hash.localeCompare(b.hash))
 
     for (const { texture, hash } of textures) {
-      logger.debug(`${NAME}: ${hash} | ${texture.getName()}`)
+      logger.debug(`${NAME}: ${hash} | ${texture.getName()} | ${texture.getExtras()?.textureKey || ''}`)
     }
 
     doc
@@ -53,7 +53,7 @@ export function uniqTextures() {
               ext.setDiffuseTexture(remapTexture(tex, textures))
             }
           }
-          if (ext instanceof NwAppearanceProperties) {
+          if (ext instanceof NwMaterialProperty) {
             if ((tex = ext.getMaskTexture())) {
               ext.setMaskTexture(remapTexture(tex, textures))
             }

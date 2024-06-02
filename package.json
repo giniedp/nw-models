@@ -16,6 +16,7 @@
     "inspect": "pnpm cli inspect",
     "clean": "pnpm nx reset && pnpm rimraf dist",
     "viewer": "pnpm cli viewer",
+    "ktx": "pnpm cli ktx",
     "cli": "pnpm build && env-cmd -f .env node ./dist/cli/index.js"
   },
   "author": "Ginie",

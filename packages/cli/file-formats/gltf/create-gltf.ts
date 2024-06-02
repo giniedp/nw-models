@@ -8,10 +8,17 @@ import sharp from 'sharp'
 import { Appearance, ModelAnimation } from '../../types'
 import { replaceExtname, writeFile, writeFileBinary } from '../../utils/file-utils'
 import { logger } from '../../utils/logger'
-import { nwAppearance } from './extensions/nw-appearance'
-import { NwAppearanceExtension } from './extensions/nw-appearance-extension'
-import { appendAnimations, appendModels } from './from-cgf'
-import { CgfModelInput, CgfResolver, MtlResolver } from './from-cgf/types'
+import { NwMaterialExtension } from './nw-material/extension'
+import { nwMaterial } from './nw-material/transform'
+import { appendAnimations, appendCameras, appendEntities, appendLights, appendModels } from './from-cgf'
+import {
+  CgfCameraInput,
+  CgfEntityInput,
+  CgfLightInput,
+  CgfModelInput,
+  CgfResolver,
+  MtlResolver,
+} from './from-cgf/types'
 import { computeNormals } from './transform/compute-normals'
 import { mergeSkins } from './transform/merge-skins'
 import { removeLod } from './transform/remove-lod'
@@ -22,24 +29,30 @@ import { uniqTextures } from './transform/uniq-textures'
 
 export async function createGltf({
   meshes,
+  lights,
+  cameras,
+  entities,
   appearance,
   animations,
   output,
   embedData,
   withDraco,
-  withWebp,
-  withKtx,
+  textureFormat,
+  textureQuality,
   resolveCgf,
   resolveMtl,
 }: {
   meshes: CgfModelInput[]
+  lights?: CgfLightInput[]
+  cameras?: CgfCameraInput[]
+  entities?: CgfEntityInput[]
   animations?: ModelAnimation[]
   appearance?: Appearance | boolean
   output: string
   embedData?: boolean
   withDraco?: boolean
-  withWebp?: boolean
-  withKtx?: boolean
+  textureFormat?: 'jpeg' | 'png' | 'webp' | 'avif'
+  textureQuality?: number
   resolveCgf: CgfResolver
   resolveMtl: MtlResolver
 }) {
@@ -62,7 +75,7 @@ export async function createGltf({
       overwrite: true,
     }),
     removeLod(),
-    nwAppearance({
+    nwMaterial({
       appearance,
     }),
     stubMissingMaterials({ outFile: output }),
@@ -71,26 +84,31 @@ export async function createGltf({
     prune({
       keepSolidTextures: true,
     }),
+    appendLights({ lights }),
+    appendCameras({ cameras }),
+    appendEntities({ entities }),
   ]
 
   if (withDraco) {
     transforms.push(draco({}))
   }
 
-  if (withWebp) {
+  if (textureFormat) {
     transforms.push(
       textureCompress({
         encoder: sharp,
-        targetFormat: 'webp',
-        //nearLossless: true,
+        targetFormat: textureFormat,
+        quality: textureQuality || null,
         slots: /(baseColor|diffuse|specularGlossiness|emissive|occlusion)/,
       }),
+      textureCompress({
+        encoder: sharp,
+        targetFormat: textureFormat,
+        lossless: true,
+        slots: /(normal)/,
+      }),
+      // HINT: do not convert mask texture to webp. It will get pre multiplied by alpha and may loose rgb masking values
     )
-  } else if (withKtx) {
-    // transforms.push(
-    //   toktx({ mode: Mode.UASTC, slots: /(normal|occlusion)/, level: 4, rdo: 4, zstd: 18 }),
-    //   toktx({ mode: Mode.ETC1S, quality: 255 }),
-    // )
   }
 
   doc.setLogger(logger)
@@ -104,9 +122,9 @@ export async function createGltf({
 }
 
 async function getIO() {
-  return new NodeIO().registerExtensions([...ALL_EXTENSIONS, NwAppearanceExtension]).registerDependencies({
-    'draco3d.decoder': await draco3d.createDecoderModule(), // Optional.
-    'draco3d.encoder': await draco3d.createEncoderModule(), // Optional.
+  return new NodeIO().registerExtensions([...ALL_EXTENSIONS, NwMaterialExtension]).registerDependencies({
+    'draco3d.decoder': await draco3d.createDecoderModule(),
+    'draco3d.encoder': await draco3d.createEncoderModule(),
   })
 }
 async function writeGltf(document: Document, output: string, embed: boolean) {
@@ -125,8 +143,21 @@ async function writeGltf(document: Document, output: string, embed: boolean) {
   } else {
     let i = 0
     for (const img of result.json.images || []) {
+      let ext = '.bin'
+      if (img.mimeType === 'image/jpeg') {
+        ext = '.jpg'
+      }
+      if (img.mimeType === 'image/png') {
+        ext = '.png'
+      }
+      if (img.mimeType === 'image/webp') {
+        ext = '.webp'
+      }
+      if (img.mimeType === 'image/avif') {
+        ext = '.avif'
+      }
       const buffer = result.resources[img.uri]
-      const file = replaceExtname(output, `.${i++}.bin`)
+      const file = replaceExtname(output, `.${i++}${ext}`)
       img.uri = path.basename(file)
       await writeFileBinary(file, buffer, {
         createDir: true,

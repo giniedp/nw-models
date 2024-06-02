@@ -60,6 +60,14 @@ export function resolveMtlTexturePath(
     return file
   }
 
+  if (path.extname(file).match(/^\.\d+$/)) {
+    // foo.dds.5 -> foo.dds
+    file = replaceExtname(file, '')
+  }
+  if (file.endsWith('.dds.dds')) {
+    file = file.replace(/\.dds$/, '')
+  }
+
   file = replaceExtname(file, '.dds')
   if (fs.existsSync(path.resolve(options.inputDir, file))) {
     return file

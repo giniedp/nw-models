@@ -1,8 +1,8 @@
-import { BinaryReader } from '../binary-reader'
+import Long from 'long'
+import { BinaryReader } from '../../../utils/binary-reader'
 import { Chunk, ChunkType } from '../types'
 import { registerChunk } from './registry'
 import { ECompressionFormat, EKeyTimesFormat } from './types'
-import Long from 'long'
 
 export interface ChunkController extends Chunk {
   controllerId: number
@@ -229,7 +229,6 @@ function smallTree48BitQuat(m1: number, m2: number, m3: number): [number, number
 }
 
 function smallTree64BitQuat(m1: number, m2: number): [number, number, number, number] {
-
   const MAX_20BITf = 741454
   const RANGE_20BIT = 0.707106781186
   const MAX_21BITf = 1482909.0

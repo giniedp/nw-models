@@ -2,7 +2,7 @@ import path from 'node:path'
 import { ModelAnimation } from 'types'
 import { adbActionsForTags, readAdbFile } from '../file-formats/adb'
 import { resolveCDFAsset } from '../file-formats/cdf'
-import { logger } from '../utils'
+import { logger, replaceExtname } from '../utils'
 import { collectAnimations } from './collect-animations'
 import { AssetCollector } from './collector'
 
@@ -30,6 +30,9 @@ export async function collectCdf(collector: AssetCollector, options: CollectCdfO
         animations: asset.animations,
         actions: adbActionsForTags(adb, options.tags || []),
         filter: ({ actions }) => {
+          if (!options.actions?.length) {
+            return true
+          }
           return options.actions.some((pattern) => {
             if (pattern.includes('*')) {
               const regex = new RegExp(pattern.replace(/\*/g, '.*'), 'i')
@@ -52,7 +55,7 @@ export async function collectCdf(collector: AssetCollector, options: CollectCdfO
           transform: null,
         }
       }),
-      outFile: file.toLowerCase(),
+      outFile: replaceExtname(file, '').toLowerCase(),
     })
   }
 }

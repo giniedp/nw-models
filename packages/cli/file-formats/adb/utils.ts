@@ -55,11 +55,6 @@ export function adbActionsForTags(doc: AnimDBDocument, tags: string[] = []) {
   for (const { action, fragments } of eachAdbAction(doc)) {
     const actionFragments: AnimationActionFragment[] = []
     const list = adbFragmentsSortedByBestMatch(fragments, tags)
-    if (action === 'Idle') {
-      list.map((it) => {
-        console.log(it.doesMatch, it.matchingTags.length, it.fragmentTags)
-      })
-    }
     for (const match of list) {
       if (!match.doesMatch || !match.fragment.AnimLayer?.length) {
         continue

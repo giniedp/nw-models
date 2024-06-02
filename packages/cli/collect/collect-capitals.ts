@@ -10,7 +10,7 @@ import {
   walkSlice,
 } from '../file-formats/dynamicslice'
 import { AZ__Entity, isPrefabSpawnerComponent } from '../file-formats/dynamicslice/types'
-import { ModelMeshAsset } from '../types'
+import { MeshAssetNode } from '../types'
 import { logger, readJSONFile, replaceExtname } from '../utils'
 import { AssetCollector } from './collector'
 
@@ -52,12 +52,12 @@ export async function collectCapitals(collector: AssetCollector, options: Collec
   const catalog = collector.catalog
   const inputDir = collector.inputDir
   const convertDir = options.convertDir
-  const mergeResult: ModelMeshAsset[] = []
+  const mergeResult: MeshAssetNode[] = []
 
   for (const file of options.files) {
     const capitalFile = path.resolve(convertDir, file)
     const capitals = await readJSONFile(capitalFile, CapitalSchema)
-    const capitalMeshes: ModelMeshAsset[] = []
+    const capitalMeshes: MeshAssetNode[] = []
 
 
     logger.debug('walk capital', capitalFile)
@@ -144,7 +144,7 @@ async function getMeshesFromEntity(
     transform: number[]
   },
 ) {
-  const result: ModelMeshAsset[] = []
+  const result: MeshAssetNode[] = []
   const asset = await getModelFromSliceEntity(entity, options.catalog)
   if (!asset) {
     return result

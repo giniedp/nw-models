@@ -3,11 +3,12 @@ import 'babylonjs-loaders'
 import { DefaultViewer, ViewerModel } from 'babylonjs-viewer'
 import { derived, type Unsubscriber, type Writable } from 'svelte/store'
 import type { DyeColor } from '../dye-colors'
-import './nw-overlay-mask-extension'
-import { NwOverlayMaskExtension } from './nw-overlay-mask-extension'
-import './nw-overlay-mask-plugin'
-import { NwOverlayMaskPlugin } from './nw-overlay-mask-plugin'
+import './nw-material-extension'
+import { NwMaterialExtension } from './nw-material-extension'
+import './nw-material-plugin'
+import { NwMaterialPlugin, registerNwMaterialPlugin } from './nw-material-plugin'
 
+registerNwMaterialPlugin()
 export interface BabylonViewerOptions {
   el: HTMLElement
   modelUrl: string
@@ -71,9 +72,7 @@ function disposer() {
   }
 }
 
-
 function viewerSetLightMode(viewer: DefaultViewer) {
-
   const skyMat = viewer.sceneManager.environmentHelper?.skyboxMaterial
   const gndMat = viewer.sceneManager.environmentHelper?.groundMaterial
   if (skyMat) {
@@ -106,7 +105,6 @@ function viewerSetDarkMode(viewer: DefaultViewer) {
     pipeline.imageProcessing.contrast = 2
   }
 }
-
 
 export type Viewer = ReturnType<typeof initViewer>
 export function initViewer({ el, modelUrl, dyeR, dyeG, dyeB, dyeA, debugMask, appearance }: BabylonViewerOptions) {
@@ -175,7 +173,7 @@ export function initViewer({ el, modelUrl, dyeR, dyeG, dyeB, dyeA, debugMask, ap
     disposables.dispose()
     disposables.add(() => {
       const foundAppearance = model.meshes
-        .map((mesh) => NwOverlayMaskExtension.getAppearance(mesh.material))
+        .map((mesh) => NwMaterialExtension.getAppearance(mesh.material))
         .find((it) => !!it)
       appearance.set(foundAppearance)
 
@@ -253,7 +251,7 @@ function updateDyeChannel({
   debugMask: boolean
 }) {
   for (const mesh of model.meshes) {
-    const mtl = NwOverlayMaskPlugin.getPlugin(mesh.material)
+    const mtl = NwMaterialPlugin.getPlugin(mesh.material)
     if (!mtl) {
       continue
     }
