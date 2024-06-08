@@ -27,17 +27,22 @@
       rowSelection: 'single',
       onGridReady: onGridReady,
       onModelUpdated: ({ api }) => {
-        api.forEachNode((node) => {
-          if (!node.rowIndex) {
-            node.setSelected(true)
+        const modelUrl = sessionStorage.getItem('modelUrl')
+        api.forEachNodeAfterFilterAndSort((node) => {
+          if (modelPath(node.data) === modelUrl) {
+            node.setSelected(true, true)
+            api.ensureNodeVisible(node, 'middle')
           }
         })
       },
       onSelectionChanged: ({ api }) => {
         const data = api.getSelectedRows()[0]
         if (data) {
-          bjsViewer?.show(modelPath(data))
-          pcViewer?.show(modelPath(data))
+          const url = modelPath(data)
+          sessionStorage.setItem('downloadName', document.title.replaceAll(' ', '_') + '_' + data.file.replace('.glb', ''))
+          sessionStorage.setItem('modelUrl', url)
+          bjsViewer?.show(url)
+          pcViewer?.show(url)
         } else {
           bjsViewer?.close()
           pcViewer?.close()
