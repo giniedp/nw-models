@@ -145,6 +145,27 @@ To convert vitals. This is work in progress and requires a hand crafted json fil
   -file, --file [specFile]
 ```
 
+## Example
+Converts housing, instruments, weapons, mounts, costumes and gear items
+```
+pnpm convert-models --texture-size 1024 --glb `
+--housing `
+--instruments `
+--weapons `
+--mounts `
+--costumes `
+--items --items-m-chr-file objects/characters/player/male/player_male.chr --items-f-chr-file objects/characters/player/female/player_female.chr
+```
+
+Converts the male player model including the Idle and the Wave emote animations
+```
+pnpm convert-models --texture-size 1024 --glb `
+--cdf objects/characters/player/male/player_male.cdf `
+--cdf objects/characters/player/female/player_female.cdf `
+--adb animations/mannequin/adb/player/player.adb `
+--adb-actions Idle Emote_Wave 
+```
+
 # Preview Models
 
 To preview the converted models, run
