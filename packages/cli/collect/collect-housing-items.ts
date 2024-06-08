@@ -3,6 +3,7 @@ import { getModelsFromCdf } from '../file-formats/cdf'
 import { getModelsFromSlice } from '../file-formats/dynamicslice'
 import { HousingTableSchema, Housingitems, MeshAssetNode } from '../types'
 import { glob, logger, readJSONFile } from '../utils'
+import { withProgressBar } from '../utils/progress'
 import { AssetCollector } from './collector'
 
 export interface CollectHousingItemsOptions {
@@ -10,42 +11,41 @@ export interface CollectHousingItemsOptions {
 }
 
 export async function collectHousingItems(collector: AssetCollector, options: CollectHousingItemsOptions) {
-  const files = await glob([
+  const table = await glob([
     path.join(collector.tablesDir, 'javelindata_housingitems.json'),
     path.join(collector.tablesDir, 'mtx', '*_housingitems_mtx.json'),
   ])
+    .then((files) => Promise.all(files.map((file) => readJSONFile(file, HousingTableSchema))))
+    .then((tables) => tables.flat())
 
-  for (const file of files) {
-    const table = await readJSONFile(file, HousingTableSchema)
-    for (const item of table) {
-      if (!item.PrefabPath) {
-        continue
-      }
-      if (options.filter && !options.filter(item)) {
-        continue
-      }
-      const sliceFile = path.join(collector.slicesDir, item.PrefabPath) + '.dynamicslice.json'
-      if (!sliceFile) {
-        logger.warn('missing slice', sliceFile)
-        continue
-      }
-      const meshes = await getMeshesFromSlice(sliceFile, collector).catch((err): MeshAssetNode[] => {
-        logger.error(err)
-        return []
-      })
-      if (!meshes.length) {
-        logger.warn('missing meshes', sliceFile)
-        return
-      }
-      await collector.collect({
-        animations: null,
-        appearance: null,
-        meshes: meshes,
-        // all housing prefabs are already prefixed with 'housing/'
-        outFile: item.PrefabPath.toLowerCase(),
-      })
+  await withProgressBar({ name: 'Scan Housing Items', tasks: table }, async (item) => {
+    if (!item.PrefabPath) {
+      return
     }
-  }
+    if (options.filter && !options.filter(item)) {
+      return
+    }
+    const sliceFile = path.join(collector.slicesDir, item.PrefabPath) + '.dynamicslice.json'
+    if (!sliceFile) {
+      logger.warn('missing slice', sliceFile)
+      return
+    }
+    const meshes = await getMeshesFromSlice(sliceFile, collector).catch((err): MeshAssetNode[] => {
+      logger.error(err)
+      return []
+    })
+    if (!meshes.length) {
+      logger.warn('missing meshes', sliceFile)
+      return
+    }
+    await collector.collect({
+      animations: null,
+      appearance: null,
+      meshes: meshes,
+      // all housing prefabs are already prefixed with 'housing/'
+      outFile: item.PrefabPath.toLowerCase(),
+    })
+  })
 }
 
 async function getMeshesFromSlice(

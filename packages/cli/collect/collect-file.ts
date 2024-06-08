@@ -5,6 +5,7 @@ import { resolveCDFAsset } from '../file-formats/cdf'
 import { DEFAULT_MATERIAL } from '../file-formats/resolvers'
 import { ModelAnimation } from '../types'
 import { logger, readJSONFile, replaceExtname } from '../utils'
+import { withProgressBar } from '../utils/progress'
 import { collectAnimations } from './collect-animations'
 import { AssetCollector } from './collector'
 
@@ -20,28 +21,31 @@ export async function collectFile(collector: AssetCollector, options: CollectFil
     z.array(
       z.object({
         id: z.string(),
-        model: z.string(),
-        adb: z.optional(z.string()),
+        cdf: z.string(),
         mtl: z.optional(z.string()),
+        adb: z.optional(z.string()),
         dmg: z.optional(z.string()),
       }),
     ),
   )
 
-  for (const item of table) {
-    const modelFile = item.model
+  await withProgressBar({ name: 'Collecting files', tasks: table }, async (item) => {
+    const modelFile = path.resolve(collector.inputDir, item.cdf)
     if (!modelFile || path.extname(modelFile) !== '.cdf') {
-      continue
+      return
     }
     if (options.filter && !options.filter(item as any)) {
-      continue
+      return
     }
-    const asset = await resolveCDFAsset(modelFile, { inputDir: collector.inputDir }).catch((err) => {
+    const asset = await resolveCDFAsset(modelFile, {
+      inputDir: collector.inputDir,
+      animations: true,
+    }).catch((err) => {
       logger.error(err)
       logger.warn(`failed to read`, modelFile)
     })
     if (!asset) {
-      continue
+      return
     }
 
     let animations: ModelAnimation[] = []
@@ -51,16 +55,16 @@ export async function collectFile(collector: AssetCollector, options: CollectFil
         animations: asset.animations,
         actions: adbActionsForTags(adb),
         filter: ({ damageIds, actions }) => {
-          if (damageIds?.length) {
-            return true
-          }
+          // if (damageIds?.length) {
+          //   return true
+          // }
           return actions.some((it) => {
             if (it.toLowerCase().startsWith('idle')) {
               return true
             }
-            if (it.toLowerCase().startsWith('combat_idle')) {
-              return true
-            }
+            // if (it.toLowerCase().startsWith('combat_idle')) {
+            //   return true
+            // }
             return false
           })
         },
@@ -105,7 +109,7 @@ export async function collectFile(collector: AssetCollector, options: CollectFil
           }
         }),
       ],
-      outFile: item.model + '.' + item.id,
+      outFile: path.join('vitals', item.id),
     })
-  }
+  })
 }

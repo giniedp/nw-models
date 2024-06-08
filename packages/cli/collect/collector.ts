@@ -36,7 +36,7 @@ export function assetCollector({ inputDir, tablesDir, slicesDir, catalog, modelF
     const refId = outFile
     const resolvedMeshes: MeshAssetNode[] = []
     if (models.has(refId)) {
-      logger.warn(`skipped duplicate asset: ${refId}`)
+      logger.info(`skipped duplicate asset: ${refId}`)
       return
     }
     for (const mesh of meshes) {

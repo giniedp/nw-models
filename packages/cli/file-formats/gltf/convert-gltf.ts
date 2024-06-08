@@ -1,94 +1,23 @@
-import { Document, Transform } from '@gltf-transform/core'
-import { draco, prune, textureCompress, unpartition } from '@gltf-transform/functions'
+import { Transform } from '@gltf-transform/core'
+import { textureCompress } from '@gltf-transform/functions'
 
 import path from 'node:path'
 import sharp from 'sharp'
-import { Appearance, ModelAnimation } from '../../types'
 import { logger } from '../../utils/logger'
-import { appendAnimations, appendCameras, appendEntities, appendLights, appendModels } from './from-cgf'
-import {
-  CgfCameraInput,
-  CgfEntityInput,
-  CgfLightInput,
-  CgfModelInput,
-  CgfResolver,
-  MtlResolver,
-} from './from-cgf/types'
-import { nwMaterial } from './nw-material/transform'
-import { computeNormals } from './transform/compute-normals'
-import { mergeSkins } from './transform/merge-skins'
-import { removeLod } from './transform/remove-lod'
-import { removeVertexColor } from './transform/remove-vertex-color'
-import { stubMissingMaterials } from './transform/stub-missing-materials'
 import { toktx } from './transform/toktx'
-import { uniqTextures } from './transform/uniq-textures'
-import { writeGlb, writeGltf } from './write-gltf'
+import { gltfIO, writeGlb, writeGltf } from './write-gltf'
 
-export async function createGltf({
-  meshes,
-  lights,
-  cameras,
-  entities,
-  appearance,
-  animations,
-  output,
-  embedData,
-  withDraco,
-  textureFormat,
-  textureQuality,
-  resolveCgf,
-  resolveMtl,
-}: {
-  meshes: CgfModelInput[]
-  lights?: CgfLightInput[]
-  cameras?: CgfCameraInput[]
-  entities?: CgfEntityInput[]
-  animations?: ModelAnimation[]
-  appearance?: Appearance | boolean
+export interface ConvertGltfOptions {
+  input: string
   output: string
   embedData?: boolean
-  withDraco?: boolean
-  textureFormat?: 'jpeg' | 'png' | 'webp' | 'avif' | 'ktx'
+  textureFormat: 'jpeg' | 'png' | 'webp' | 'avif' | 'ktx'
   textureQuality?: number
-  resolveCgf: CgfResolver
-  resolveMtl: MtlResolver
-}) {
-  const doc = new Document()
-  doc.createBuffer('buffer')
-
-  const scene = doc.createScene()
-  doc.getRoot().setDefaultScene(scene)
-
-  const transforms: Transform[] = [
-    appendModels({
-      models: meshes,
-      resolveCgf,
-      resolveMtl,
-    }),
-    mergeSkins(),
-    appendAnimations({ animations }),
-    removeVertexColor(),
-    computeNormals({
-      overwrite: true,
-    }),
-    removeLod(),
-    nwMaterial({
-      appearance,
-    }),
-    stubMissingMaterials({ outFile: output }),
-    unpartition(),
-    uniqTextures(),
-    prune({
-      keepSolidTextures: true,
-    }),
-    appendLights({ lights }),
-    appendCameras({ cameras }),
-    appendEntities({ entities }),
-  ]
-
-  if (withDraco) {
-    transforms.push(draco({}))
-  }
+  textureSize?: number
+  ktxThreadSize?: number
+}
+export async function convertGltf({ input, output, embedData, textureFormat, textureQuality, ktxThreadSize, textureSize }: ConvertGltfOptions) {
+  const transforms: Transform[] = []
 
   if (textureFormat === 'ktx') {
     transforms.push(
@@ -105,7 +34,7 @@ export async function createGltf({
               '--assign-oetf', 'linear',
               '--assign-primaries', 'none',
               '--format', 'R8G8B8_UNORM',
-              '--threads', '2',
+              '--threads', ktxThreadSize ? String(ktxThreadSize) : '1',
             ],
           },
           {
@@ -119,7 +48,7 @@ export async function createGltf({
               '--assign-oetf', 'linear',
               '--assign-primaries', 'none',
               '--format', 'R8G8B8A8_UNORM',
-              '--threads', '2',
+              '--threads', ktxThreadSize ? String(ktxThreadSize) : '1',
             ],
           },
           {
@@ -133,7 +62,7 @@ export async function createGltf({
               '--assign-oetf', 'srgb',
               '--assign-primaries', 'bt709',
               '--format', 'R8G8B8A8_UNORM',
-              '--threads', '2',
+              '--threads', ktxThreadSize ? String(ktxThreadSize) : '1',
             ],
           },
           {
@@ -145,7 +74,7 @@ export async function createGltf({
               '--assign-oetf', 'srgb',
               '--assign-primaries', 'bt709',
               '--format', 'R8G8B8A8_SRGB',
-              '--threads', '2',
+              '--threads', ktxThreadSize ? String(ktxThreadSize) : '1',
             ],
           },
         ],
@@ -158,22 +87,35 @@ export async function createGltf({
         targetFormat: textureFormat,
         quality: textureQuality || null,
         slots: /(baseColor|diffuse|emissive|occlusion)/,
+        resize: textureSize ? [textureSize, textureSize] : undefined,
       }),
       textureCompress({
         encoder: sharp,
         targetFormat: textureFormat,
         nearLossless: true,
         slots: /(specular)/,
+        resize: textureSize ? [textureSize, textureSize] : undefined,
       }),
       textureCompress({
         encoder: sharp,
         targetFormat: textureFormat,
         lossless: true,
         slots: /(normal)/,
+        resize: textureSize ? [textureSize, textureSize] : undefined,
       }),
       // HINT: do not convert mask texture to webp. It will get pre multiplied by alpha and may loose rgb masking values
     )
+  } else if (textureSize) {
+    transforms.push(
+      textureCompress({
+        encoder: sharp,
+        resize: textureSize ? [textureSize, textureSize] : undefined,
+      }),
+    )
   }
+
+  const io = await gltfIO()
+  const doc = await io.read(input)
 
   doc.setLogger(logger)
   await doc.transform(...transforms)

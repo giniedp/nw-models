@@ -1,11 +1,11 @@
 import 'colors'
 import { program } from 'commander'
 import './commands/convert-catalog'
+import './commands/convert-gltf'
 import './commands/convert-models'
 import './commands/convert-slices'
 import './commands/convert-tables'
+import './commands/env'
 import './commands/unpack'
 import './commands/viewer'
-import './commands/env'
-import './commands/ktx'
 program.parse(process.argv)

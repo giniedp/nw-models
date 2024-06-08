@@ -64,7 +64,7 @@ export async function collectAnimations(options: CollectAnimationsOptions) {
             return true
           })
           for (const blend of blends) {
-            const animation = options.animations.find((it) => it.name === blend.animation)
+            const animation = options.animations.find((it) => it.name.toLowerCase() === blend.animation.toLowerCase())
             if (!animation) {
               continue
             }

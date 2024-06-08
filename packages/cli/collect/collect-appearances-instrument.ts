@@ -2,6 +2,7 @@ import path from 'node:path'
 import { resolveCDFAsset } from '../file-formats/cdf'
 import { InstrumentAppearance } from '../types'
 import { logger, readJSONFile } from '../utils'
+import { withProgressBar } from '../utils/progress'
 import { AssetCollector } from './collector'
 
 export interface CollectInstrumentOptions {
@@ -17,11 +18,9 @@ export async function collectInstrumentAppearances(collector: AssetCollector, op
     return results.flat()
   })
 
-  console.info('Collecting instrument appearances', table.length)
-  //
-  for (const item of table) {
+  await withProgressBar({ name: 'Scan Instruments', tasks: table }, async (item) => {
     if (options.filter && !options.filter(item)) {
-      continue
+      return
     }
     await collector.collect({
       appearance: item,
@@ -50,12 +49,15 @@ export async function collectInstrumentAppearances(collector: AssetCollector, op
       outFile: path.join('instrumentappearances', [item.WeaponAppearanceID, 'SkinOverride2'].join('-')),
     })
     if (item.MeshOverride && path.extname(item.MeshOverride) === '.cdf') {
-      const asset = await resolveCDFAsset(item.MeshOverride, { inputDir: collector.inputDir }).catch((err) => {
+      const asset = await resolveCDFAsset(item.MeshOverride, {
+        inputDir: collector.inputDir,
+        animations: false,
+      }).catch((err) => {
         logger.error(err)
         logger.warn(`failed to read`, item.MeshOverride)
       })
       if (!asset) {
-        continue
+        return
       }
 
       await collector.collect({
@@ -86,5 +88,5 @@ export async function collectInstrumentAppearances(collector: AssetCollector, op
         outFile: path.join('instrumentappearances', [item.WeaponAppearanceID, 'MeshOverride'].join('-')),
       })
     }
-  }
+  })
 }

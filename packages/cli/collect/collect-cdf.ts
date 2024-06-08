@@ -15,7 +15,10 @@ export interface CollectCdfOptions {
 
 export async function collectCdf(collector: AssetCollector, options: CollectCdfOptions) {
   for (const file of options.files) {
-    const asset = await resolveCDFAsset(file, { inputDir: collector.inputDir }).catch((err) => {
+    const asset = await resolveCDFAsset(file, {
+      inputDir: collector.inputDir,
+      animations: true,
+    }).catch((err) => {
       logger.error(err)
       logger.warn(`failed to read`, file)
     })

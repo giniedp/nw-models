@@ -23,3 +23,11 @@ export interface DDSHeader {
   caps4: number
   reserved6: number
 }
+
+export interface DX10Header {
+  dxgiFormat: number
+  resourceDimension: number
+  miscFlag: number
+  arraySize: number
+  miscFlags2: number
+}

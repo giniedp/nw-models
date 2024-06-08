@@ -28,41 +28,50 @@ import { runTasks } from '../worker'
 program
   .command('convert-models')
   .description('Converts models to GLTF file format')
-  .requiredOption('-ud, --unpack-dir [unpackDir]', 'Path to the unpacked game directory', UNPACK_DIR)
-  .requiredOption('-cd, --convert-dir [convertDir]', 'Path to the intermediate directory', CONVERT_DIR)
-  .requiredOption('-od, --output-dir [outputDir]', 'Output Path to the output directory', MODELS_DIR)
+  .requiredOption('-ud, --unpack-dir [unpackDir]', 'Path to the unpacked game data directory', UNPACK_DIR)
+  .requiredOption(
+    '-cd, --convert-dir [convertDir]',
+    [
+      'Path to the intermediate data directory.',
+      'Used for texture conversion and materials.',
+      'Should not be same as unpack directory, it may overwrite existing DDS files.',
+    ].join(' '),
+    CONVERT_DIR,
+  )
+  .requiredOption('-od, --output-dir [outputDir]', 'Path to the output directory', MODELS_DIR)
+  //
   .option(
-    '-sem, --skip-existing-models',
-    'Skips model conversion if it already exists in output dir (e.g. from previous conversion)',
+    '-skip, --skip [type]',
+    'Skips existing assets from previous conversion. Use `-skip textures` to skip only textures.',
     false,
   )
-  .option(
-    '-set, --skip-exisitng-textures',
-    'Skips texture conversion if it alreayd exists (e.g. from previous conversion)',
-    false,
-  )
-
+  //
   .option('-v, --verbose', 'Enables log output (automatically enabled if --thread-count is set 0)')
-  .option('-tc, --thread-count <threadCount>', 'Number of threads', String(cpus().length))
-  .option('-ts, --texture-size <textureSize>', 'Maximym texture size.')
-  .option('-tf, --texture-format <textureFormat>', 'Output texture format.')
-  .option('-tq, --texture-quality <textureQuality>', 'Texture conversion quality 0-100')
-  .option('-embed, --embed', 'Embeds binary buffer inside the model file', true)
-  .option('-no-embed, --no-embed', 'Does not embed binary buffer inside the model file')
-  .option('-draco, --draco', 'Enables Draco compression', false)
+  .option('-tc, --thread-count <threadCount>', 'Number of workers to spawn', String(cpus().length))
+  .option('-ts, --texture-size <textureSize>', 'Maximum texture size.')
+  .option(
+    '-tf, --texture-format <textureFormat>',
+    'Output texture format: png, jpeg, webp, avif, ktx. For ktx the toktx software must be installed.',
+  )
+  .option(
+    '-tq, --texture-quality <textureQuality>',
+    'Texture conversion quality 0-100. Only used for png, jpeg, webp, avif',
+  )
+  .option('-embed, --embed', 'Embeds binary buffer and textures inside the gltf file', true)
+  .option('-no-embed, --no-embed', 'Does not embed binary buffer and textures inside the gltf file')
   .option('-glb, --glb', 'Exports binary GLTF .glb files instead of .gltf JSON', false)
 
   // cdf
-  .option('-cdf, --cdf <cdfFile>', 'Convert a specific .cdf file. (may be glob pattern)')
-  .option('-adb, --adb <adbFile>', 'Animation database file to pull animations from')
+  .option('-cdf, --cdf <file...>', 'Convert a specific .cdf file. (may be glob pattern)')
+  .option('-adb, --adb <file>', 'Animation database file to pull animations from')
   .option('-adba, --adb-actions [actions...]', 'Use only the listed actions (exact name)')
   // cgf
-  .option('-cgf, --cgf [cgf...]', 'Convert a specific .cgf (or .skin) file. (may be glob pattern)')
-  .option('-mtl, --mtl <materialFile>', 'Material file to use for all cgf files. ')
+  .option('-cgf, --cgf <file...>', 'Convert a specific .cgf (or .skin) file. (may be glob pattern)')
+  .option('-mtl, --mtl <file>', 'Material file to use for all cgf files. ')
   .option('-cgf-out, --cgf-out <outputFile>', 'Output file, all cgf will be merged to one model.')
   // slices
-  .option('-slice, --slice <sliceFile>', 'Converts models from .dynamicslice files. (may be glob pattern)')
-  .option('-recursive, --recursive', 'Recursively process slice file. (potentially huge model output)')
+  .option('-slice, --slice <file...>', 'Converts models from .dynamicslice files. (may be glob pattern)')
+  .option('-recursive, --recursive', 'Recursively process referenced slice files. (potentially huge model output)')
   .option(
     '-slice-out, --slice-out <outputFile>',
     'Output file. Geometry from all processed slices is merged into one model.',
@@ -70,8 +79,8 @@ program
   // levels, entities xml
   .option('-level, --level [ids...]', 'Converts levels from levels directory.')
   // capitals
-  .option('-capital, --capital <capitalFile>', 'Converts models from .capitals files. (may be glob pattern)')
-  .option('-merge, --merge', 'Merges all capital files into one giant model.')
+  .option('-capital, --capital <file...>', 'Converts models from .capitals files. (may be glob pattern)')
+  .option('-capital-out, --capital-out <outputFile>', 'Output file. All capital files are merged into one model.')
   // costumes
   .option(
     '-costumes, --costumes [ids...]',
@@ -106,9 +115,10 @@ program
   //
   .action(async (opts) => {
     logger.verbose(true)
-    logger.debug('convert', opts)
 
     const threads: number = Number(opts.threadCount) || 0
+    const skipModels = !!opts.skip
+    const skipTextures = opts.skip === 'textures'
     const options: ConvertModelsOptions = {
       inputDir: opts.unpackDir,
       convertDir: opts.convertDir,
@@ -124,11 +134,15 @@ program
 
       verbose: opts.verbose ?? !threads,
       threadCount: threads,
-      updateModels: !opts.skipExistingModels,
-      updateTextures: !opts.skipExistingTextures,
+      updateModels: !skipModels,
+      updateTextures: !skipTextures,
 
       assets: [],
     }
+    logger.info('convert', {
+      input: opts,
+      options: options,
+    })
 
     const slicesDir = path.join(options.convertDir, 'slices')
     const tablesDir = path.join(options.convertDir, 'sharedassets', 'springboardentitites', 'datatables')
@@ -158,7 +172,7 @@ program
 
     if (opts.cdf) {
       await collectCdf(collector, {
-        files: await globFiles(options.inputDir, opts.cdf),
+        files: await globFiles(options.inputDir, paramList(opts.cdf)),
         adbFile: opts.adb,
         actions: paramList(opts.adbActions),
         tags: paramList(opts.tags),
@@ -175,7 +189,7 @@ program
 
     if (opts.slice) {
       await collectSlices(collector, {
-        files: await globFiles(options.convertDir, opts.slice),
+        files: await globFiles(options.convertDir, paramList(opts.slice)),
         convertDir: options.convertDir,
         outFile: opts.sliceOut,
       })
@@ -184,7 +198,7 @@ program
     if (opts.capital) {
       const ids = paramList(opts.id)
       await collectCapitals(collector, {
-        files: await globFiles(options.convertDir, opts.capital),
+        files: await globFiles(options.convertDir, paramList(opts.capital)),
         convertDir: options.convertDir,
         merge: !!opts.merge,
         filter: (item) => !ids || ids.includes(item.id),
@@ -325,11 +339,10 @@ async function convertModels({
       ``,
     ].join('\n'),
   )
-  logger.info('Step 1/3: Convert and copy textures')
   logger.verbose(verbose)
 
   await runTasks({
-    label: 'Textures',
+    label: 'Convert Textures',
     threads: threadCount,
     taskName: 'processTexture',
     tasks: textures.map((texture) => {
@@ -343,12 +356,8 @@ async function convertModels({
     }),
   })
 
-  logger.verbose(true)
-  logger.info('Step 2/3: Copy materials')
-  logger.verbose(verbose)
-
   await runTasks<'copyMaterial'>({
-    label: 'Materials',
+    label: 'Copy Materials',
     taskName: 'copyMaterial',
     tasks: materials.map((file) => {
       return {
@@ -360,11 +369,8 @@ async function convertModels({
     }),
   })
 
-  logger.verbose(true)
-  logger.info('Step 3/3: Generate models')
-  logger.verbose(verbose)
   await runTasks({
-    label: 'Models',
+    label: 'Generate Models',
     threads: threadCount,
     taskName: 'processModel',
     tasks: assets.map((asset) => {
@@ -475,7 +481,7 @@ async function dryRun(options: ConvertModelsOptions) {
       const doc = await readMtlFile(path.join(options.inputDir, file))
       const materials = getMaterialList(doc?.Material)
       for (const material of materials) {
-        const shader = (material.Shader || '')
+        const shader = material.Shader || ''
         if (shaders.has(shader)) {
           shaders.set(shader, shaders.get(shader) + 1)
         } else {

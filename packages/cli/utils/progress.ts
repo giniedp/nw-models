@@ -1,7 +1,7 @@
 import { Bar, MultiBar, Presets } from 'cli-progress'
 import { logger } from './logger'
 
-function makeBarName(name: string, limit: number = 10) {
+function makeBarName(name: string, limit: number = 25) {
   name = name || ''
   if (name) {
     while (name.length < limit) {
@@ -18,7 +18,7 @@ export async function useProgressBar<T>(barName: string, fn: (bar: Bar) => Promi
   if (!multiBar) {
     const bars = new MultiBar(
       {
-        format: `${makeBarName(barName, 10)}{bar} | {percentage}% | {duration_formatted} | {eta_formatted} | {value}/{total} {log}`,
+        format: `${makeBarName(barName, 20)}{bar} | {value}/{total} {percentage}% | {duration_formatted} ETA:{eta_formatted} {log}`,
         clearOnComplete: false,
         hideCursor: true,
         etaBuffer: 1000,

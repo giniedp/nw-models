@@ -46,6 +46,7 @@ export async function textureMerge(
   return await sharp(buffers[0], {
     raw: { width: maps[0].info.width, height: maps[0].info.height, channels: maps[0].info.channels },
   })
+    .toColorspace('rgba')
     .toFormat('png')
     .toBuffer()
 }

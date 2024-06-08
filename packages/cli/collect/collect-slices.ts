@@ -27,9 +27,7 @@ export async function collectSlices(collector: AssetCollector, options: CollectS
         transform: transform,
       })
       result.push(...meshes)
-      if (meshes.length > 0) {
-        console.log('found meshes', meshes.length)
-      }
+
       const prefab = entry.entity.components.find(isPrefabSpawnerComponent)
       if (!prefab || !prefab.m_sliceasset) {
         return

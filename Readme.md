@@ -61,72 +61,88 @@ pnpm convert-models [options]
 
 All purpose options are
 ```
--u, --update <mode>                 Ignores previously converted and exported data and overrides files. (may be all or models) (default: "all")
--tc, --thread-count <threadCount>   Number of threads (disables debug log if greather than 0)
--ts, --texture-size <textureSize>   Resize all textures to given size.
---embed                             Embeds binary buffer inside the model file (default: true)
---no-embed                          Does not embed binary buffer inside the model file
---webp                              Converts textures to wepb instead of png before embedding into model (default: false)
---glb                               Exports binary GLTF .glb files instead of .gltf JSON (default: false)
---verbose                           Enables log output (automatically enabled if threads is 0)
+  -ud, --unpack-dir [unpackDir]             Path to the unpacked game data directory (default: "../nw-data/custom")
+  -cd, --convert-dir [convertDir]           Path to the intermediate data directory. Used for texture conversion and materials. Should not be same as unpack directory, it may overwrite existing DDS    
+  -od, --output-dir [outputDir]             Path to the output directory (default: "out\\models")
+  -skip, --skip [type]                      Skips existing assets from previous conversion. Use `-skip textures` to skip only textures. (default: false)
+  -v, --verbose                             Enables log output (automatically enabled if --thread-count is set 0)
+
+  -tc, --thread-count <threadCount>         Number of workers to spawn (default: "32")
+  -ts, --texture-size <textureSize>         Maximum texture size.
+  -tf, --texture-format <textureFormat>     Output texture format: png, jpeg, webp, avif, ktx. For ktx the toktx software must be installed.
+  -tq, --texture-quality <textureQuality>   Texture conversion quality 0-100. Only used for png, jpeg, webp, avif
+  -no-embed, --no-embed                     Does not embed binary buffer and textures inside the gltf file
+  -glb, --glb                               Exports binary GLTF .glb files instead of .gltf JSON (default: false)
 ```
 
 Conversion specific options are as follows:
 
+Character definition files (including character animations)
 ```
--cdf, --cdf <cdfFile>               Convert a specific .cdf file. (may be glob pattern)
-```
-
-```
--cgf, --cgf <cgfFile>               Convert a specific .cgf (or .skin) file. (may be glob pattern)
-```
-
-```
--slice, --slice <sliceFile>         Converts models from .dynamicslice files. (may be glob pattern)
--recursive, --recursive             Recursively process slice file. (potentially huge model output)
+  -cdf, --cdf <file...>                     Convert a specific .cdf file. (may be glob pattern)
+  -adb, --adb <file>                        Animation database file to pull animations from
+  -adba, --adb-actions [actions...]         Use only the listed actions (exact name)
 ```
 
-To convert a level directory. This is work in progress. This currently only works for the main menu level yet not for dungeons.
+Cry Geometry File (static, non animated files)
 ```
--level, --level [ids...]            Converts levels from levels directory.
+  -cgf, --cgf <file...>                     Convert a specific .cgf (or .skin) file. (may be glob pattern)
+  -mtl, --mtl <file>                        Material file to use for all cgf files.
+  -cgf-out, --cgf-out <outputFile>          Output file, all cgf will be merged to one model.
 ```
 
-To convert capital files. Point it to a dungeon folder to extract the dungeon level geometry.
-This is work in progress and will later become part of `-level` option
+Dynamic slices
 ```
--capital, --capital <capitalFile>   Converts models from .capitals files. (may be glob pattern)
--merge, --merge                     Merges all capital files into one giant model.
+  -slice, --slice <file...>                 Converts models from .dynamicslice files. (may be glob pattern)
+  -recursive, --recursive                   Recursively process referenced slice files. (potentially huge model output)
+  -slice-out, --slice-out <outputFile>      Output file. Geometry from all processed slices is merged into one model.
+```
+
+Level directories. This is work in progress. This currently only works for the main menu level yet not for dungeons.
+```
+  -level, --level [ids...]                  Converts levels from levels directory.
+```
+
+Capital files. Point it to a dungeon folder to extract the dungeon level geometry.
+This is work in progress and will later become part of `-level` option.
+```
+  -capital, --capital <file...>             Converts models from .capitals files. (may be glob pattern)
+  -capital-out, --capital-out <outputFile>  Output file. All capital files are merged into one model.
 ```
 
 To convert halloween costumes from datasheets. Requires `convert-datasheets` to be run.
 ```
--costumes, --costumes [ids...]      Converts all costumes from costumes table. Models are placed in "costumechanges" directory. If list of ids is provided, only those costumes are converted.
+  -costumes, --costumes [ids...]            Converts all costumes from costumes table. Models are placed in "costumechanges" directory. If list of ids is provided, only those costumes are converted.   
 ```
 
 To convert npcs from datasheets. Requires `convert-datasheets` to be run.
 ```
--npcs, --npcs [ids...]              Converts all npcs from npcs table. Models are placed in "npcs" directory. If list of ids is provided, only those npcs are converted.
+  -npcs, --npcs [ids...]                    Converts all npcs from npcs table. Models are placed in "npcs" directory. If list of ids is provided, only those npcs are converted.
 ```
 
 To convert mounts from datasheets. Requires `convert-datasheets` to be run.
 ```
--mounts, --mounts [ids...]          Converts all mounts from mounts table. Models are placed in "mounts" directory. If list of ids is provided, only those mounts are converted.
+  -mounts, --mounts [ids...]                Converts all mounts from mounts table. Models are placed in "mounts" directory. If list of ids is provided, only those mounts are converted.
 ```
 
 To convert housing items from datasheets. Requires `convert-datasheets` AND `convert-slcies` to be run.
 ```
--housing, --housing [ids...]        Converts all housing items from housing items tables. Models are placed in "housingitems" directory. If list of ids is provided, only those items are converted.
+  -housing, --housing [ids...]              Converts all housing items from housing items tables. Models are placed in "housingitems" directory. If list of ids is provided, only those items are        
+                                            converted.
 ```
 
 To convert appearance items (transmog) from datasheets. Requires `convert-datasheets` to be run.
 ```
--appearance, --appearance [ids...]  Converts weapon,item,instrument appearances.
+  -items, --items [ids...]                  Converts items appearances
+  -items-m-chr, --items-m-chr-file <file>   Uses the skeleton from the given file for male items.
+  -items-f-chr, --items-f-chr-file <file>   Uses the skeleton from the given file for female items.
+  -weapons, --weapons [ids...]              Converts weapon appearances
+  -instruments, --instruments [ids...]      Converts instruments appearances
 ```
 
 To convert vitals. This is work in progress and requires a hand crafted json file for what to be converted.
 ```
--file, --file [specFile]
--id, --id [ids...]
+  -file, --file [specFile]
 ```
 
 # Preview Models
@@ -138,7 +154,3 @@ pnpm viewer
 ```
 
 This will start a server and open the browser listing all converted models, allowing you to preview them.
-
-# Planned
-
-- Optimize textures (https://www.khronos.org/assets/uploads/apis/KTX-2.0-Launch-Overview-Apr21_.pdf)

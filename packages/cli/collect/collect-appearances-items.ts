@@ -3,6 +3,7 @@ import { CharacterDefinition, getCDFSkinsOrCloth, readCDF, resolveCDFAsset } fro
 import { DEFAULT_MATERIAL } from '../file-formats/resolvers'
 import { ItemAppearanceDefinition, MeshAssetNode } from '../types'
 import { glob, logger, readJSONFile } from '../utils'
+import { withProgressBar } from '../utils/progress'
 import { AssetCollector } from './collector'
 
 export interface CollectItemsOptions {
@@ -18,8 +19,6 @@ export async function collectItemAppearances(collector: AssetCollector, options:
     })
     .then((results) => results.flat())
 
-  console.info('Collecting item appearances', table.length)
-
   // Skin1 and Material1 is the primary model/material pair for the appearance. All items have this.
   // Skin2 is filler geometry, adds a naked skin if the item is not fully covered
   // ShortsleeveChestSkin is alternative to Skin1 e.g. for chest pieces when the arms are covered with gloves
@@ -29,13 +28,13 @@ export async function collectItemAppearances(collector: AssetCollector, options:
   const femaleChr = await getCharacterBones(options.femaleChrFile, collector)
 
   const outDir = 'itemappearances'
-  for (const item of table) {
+  await withProgressBar({ name: 'Scan Items', tasks: table }, async (item) => {
     if (options.filter && !options.filter(item)) {
-      continue
+      return
     }
     if (!item.Skin1 || !item.Material1) {
       // all items should have Skin1 and Material1
-      continue
+      return
     }
 
     const attachments: MeshAssetNode[] = await getCloth(item, collector)
@@ -78,7 +77,7 @@ export async function collectItemAppearances(collector: AssetCollector, options:
         outFile: path.join(outDir, [item.ItemID, 'ShortsleeveChestSkin'].join('-')),
       })
     }
-  }
+  })
 }
 
 async function getCloth(item: ItemAppearanceDefinition, options: { inputDir: string }) {
@@ -117,7 +116,10 @@ async function getCharacterBones(chrFile: string, options: { inputDir: string })
   }
 
   if (path.extname(chrFile) === '.cdf') {
-    const asset = await resolveCDFAsset(chrFile, options)
+    const asset = await resolveCDFAsset(chrFile, {
+      inputDir: options.inputDir,
+      animations: false,
+    })
     result.push({
       model: asset.model,
       material: DEFAULT_MATERIAL,

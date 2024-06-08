@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { withProgressBar } from '../utils/progress'
 import { resolveCDFAsset } from '../file-formats/cdf'
 import { CostumeChanges, CostumeChangesSchema } from '../types'
 import { logger, readJSONFile } from '../utils'
@@ -14,20 +15,23 @@ export async function collectCostumeChanges(collector: AssetCollector, options: 
     CostumeChangesSchema,
   )
 
-  for (const item of table) {
+  await withProgressBar({ name: 'Scan Costumes', tasks: table }, async (item) => {
     const modelFile = item.CostumeChangeMesh
     if (!modelFile || path.extname(modelFile) !== '.cdf') {
-      continue
+      return
     }
     if (options.filter && !options.filter(item as any)) {
-      continue
+      return
     }
-    const asset = await resolveCDFAsset(modelFile, { inputDir: collector.inputDir }).catch((err) => {
+    const asset = await resolveCDFAsset(modelFile, {
+      inputDir: collector.inputDir,
+      animations: false,
+    }).catch((err) => {
       logger.error(err)
       logger.warn(`failed to read`, modelFile)
     })
     if (!asset) {
-      continue
+      return
     }
 
     await collector.collect({
@@ -41,7 +45,7 @@ export async function collectCostumeChanges(collector: AssetCollector, options: 
           transform: null,
         }
       }),
-      outFile: path.join('costumechanges', item.CostumeChangeId.toLowerCase()) ,
+      outFile: path.join('costumechanges', item.CostumeChangeId.toLowerCase()),
     })
-  }
+  })
 }

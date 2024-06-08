@@ -7,21 +7,29 @@ import { readDdsFile } from './reader'
 
 export async function concatDds({
   headerFile,
-  imageFile,
+  imageFiles,
+  isDX10,
   outFile,
 }: {
   headerFile: string
-  imageFile: string
+  imageFiles: string[]
+  isDX10: boolean
   outFile?: string
 }) {
-  let header = await fs.promises.readFile(headerFile)
-  let image = await fs.promises.readFile(imageFile)
-  header[0x1c] = 0 // mip map count
-  header = header.subarray(0, 0x94) // chop off the DX10 header part
-  const data = Buffer.concat([header, image])
+  let header = fs.readFileSync(headerFile)
+  let images = imageFiles.map((file) => fs.readFileSync(file))
 
+  const headerSize = isDX10 ? 0x94 : 0x80
+  const data = Buffer.concat([
+    // header
+    header.subarray(0, headerSize),
+    // mipmaps
+    ...images,
+    // attachment
+    header.subarray(headerSize),
+  ])
   if (outFile) {
-    await fs.promises.writeFile(outFile, data)
+    fs.writeFileSync(outFile, data)
   }
   return data
 }
@@ -40,7 +48,8 @@ export async function copyDdsFile({ input, output }: { input: string; output: st
   if (dds.mipFiles.length) {
     await concatDds({
       headerFile: input,
-      imageFile: dds.mipFiles.pop(),
+      imageFiles: dds.mipFiles,
+      isDX10: !!dds.headerDX10,
       outFile: output,
     })
     result.push(output)
@@ -57,7 +66,8 @@ export async function copyDdsFile({ input, output }: { input: string; output: st
     output = replaceExtname(output, '.a' + path.extname(output))
     await concatDds({
       headerFile: input,
-      imageFile: dds.mipFilesAlpha.pop(),
+      imageFiles: dds.mipFilesAlpha,
+      isDX10: !!dds.headerDX10,
       outFile: output,
     })
     result.push(output)
@@ -113,12 +123,14 @@ export async function ddsToPng({ isNormal, ddsFile, outDir, size, maxsize }: Dds
   }
   await texconv({
     ...options,
+    srgb: true,
   })
     .catch((err) => {
       logger.warn('retry with rgba format', ddsFile, err)
       return texconv({
         ...options,
         format: 'rgba',
+        srgb: true,
       })
     })
     .catch((err) => {

@@ -1,7 +1,8 @@
 import path from 'node:path'
+import { withProgressBar } from '../utils/progress'
 import { resolveCDFAsset } from '../file-formats/cdf'
 import { WeaponAppearanceDefinition } from '../types'
-import { logger, readJSONFile, replaceExtname } from '../utils'
+import { logger, readJSONFile } from '../utils'
 import { AssetCollector } from './collector'
 
 export interface CollectWeaponsOptions {
@@ -20,14 +21,12 @@ export async function collectWeaponAppearances(collector: AssetCollector, option
   ).then((results) => {
     return results.flat()
   })
-  console.info('Collecting weapon appearances', table.length)
-  //
-  for (const item of table) {
+  await withProgressBar({ name: 'Scan Weapons', tasks: table }, async (item) => {
     if (options.filter && !options.filter(item)) {
-      continue
+      return
     }
     if (!item.MeshOverride) {
-      continue
+      return
     }
     // HING: SkinOverride1 and SkinOverride2 are ignored.
     // They are not useful for weapon appearances. Usually contain bow strings.
@@ -39,13 +38,13 @@ export async function collectWeaponAppearances(collector: AssetCollector, option
     if (path.extname(item.MeshOverride) === '.cdf') {
       const asset = await resolveCDFAsset(item.MeshOverride, {
         inputDir: collector.inputDir,
-        skipAnimations: true,
+        animations: false,
       }).catch((err) => {
         logger.error(err)
         logger.warn(`failed to read`, item.MeshOverride)
       })
       if (!asset) {
-        continue
+        return
       }
 
       await collector.collect({
@@ -77,5 +76,5 @@ export async function collectWeaponAppearances(collector: AssetCollector, option
         outFile,
       })
     }
-  }
+  })
 }

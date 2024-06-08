@@ -12,7 +12,7 @@ export interface RunTasksOptions<K extends TaskName> {
 }
 
 export async function runTasks<K extends TaskName>(options: RunTasksOptions<K>) {
-  if (options.threads) {
+  if (options.threads > 1) {
     return runThreaded(options)
   }
   return runSerial(options)

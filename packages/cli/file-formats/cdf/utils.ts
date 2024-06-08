@@ -97,10 +97,10 @@ export async function getModelsFromCdf(file: string) {
   return getCDFSkinsOrCloth(doc)
 }
 
-export async function resolveCDFAsset(file: string, options: { inputDir: string, skipAnimations?: boolean}) {
+export async function resolveCDFAsset(file: string, options: { inputDir: string, animations: boolean}) {
   const cdfFile = path.resolve(options.inputDir, file)
   const cdf = await readCDF(cdfFile)
-  const animations = options.skipAnimations ? [] : await getCDFAnimationFiles(cdf, options)
+  const animations = options.animations ? await getCDFAnimationFiles(cdf, options) : []
   const skins = getCDFSkinsOrCloth(cdf)
   return {
     file: cdfFile,
