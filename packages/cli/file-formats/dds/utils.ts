@@ -123,14 +123,12 @@ export async function ddsToPng({ isNormal, ddsFile, outDir, size, maxsize }: Dds
   }
   await texconv({
     ...options,
-    srgb: true,
   })
     .catch((err) => {
       logger.warn('retry with rgba format', ddsFile, err)
       return texconv({
         ...options,
         format: 'rgba',
-        srgb: true,
       })
     })
     .catch((err) => {
