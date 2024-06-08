@@ -86,6 +86,7 @@ export class NwMaterialPlugin extends BABYLON.MaterialPluginBase {
   public override prepareDefines(defines: BABYLON.MaterialDefines, scene: BABYLON.Scene, mesh: BABYLON.AbstractMesh) {
     defines.NW_OVERLAY_MASK = this._isEnabled
     defines.NW_OVERLAY_DEBUG = this._debugMask
+    defines.WORLD_UBO = true
   }
 
   public override getUniforms() {
@@ -158,7 +159,7 @@ export class NwMaterialPlugin extends BABYLON.MaterialPluginBase {
       CUSTOM_FRAGMENT_UPDATE_ALBEDO: `
         #ifdef NW_OVERLAY_MASK
 
-          vec4 nwMask = texture2D(nwMaskTexture, vAlbedoUV);
+          vec4 nwMask = texture2D(nwMaskTexture, vMainUV1).rgba;
 
           float luminance = dot(surfaceAlbedo.rgb, vec3(0.2125, 0.7154, 0.0721));
 
@@ -177,7 +178,7 @@ export class NwMaterialPlugin extends BABYLON.MaterialPluginBase {
       `,
       '!float\\smicroSurface=reflectivityOut.microSurface;': `
         #ifdef NW_OVERLAY_MASK
-          vec4 nwMask = texture2D(nwMaskTexture, vAlbedoUV);
+          vec4 nwMask = texture2D(nwMaskTexture, vMainUV1).rgba;
           reflectivityOut.surfaceReflectivityColor = mix(reflectivityOut.surfaceReflectivityColor, nwMaskASpec.rgb, nwMask.a * nwMaskASpec.a) ;
 
           float nwMaskRoughness = reflectivityOut.roughness;
