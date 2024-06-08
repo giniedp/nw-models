@@ -129,6 +129,18 @@ export function updateNwMaterial({
     mtl.nwMaskASpec = maskA.maskColor
     mtl.nwMaskGlossShift = glossShift ?? appearance.MaskAGlossShift ?? 0.5
     mtl.nwMaskGloss = appearance.MaskAGloss ?? 0
+
+    const pbr = mesh.material as BABYLON.PBRMaterial
+    if (pbr.emissiveTexture) {
+      const emCol = parseColor(appearance.EmissiveColor)
+      if (!appearance.EmissiveIntensity && !(emCol.r || emCol.g || emCol.b)) {
+        // assume default emissive color (or whatever is set in the material)
+        // otherwise breaks the 2hGreatswordCondemedSacrariumT5 weapon appearance
+      } else {
+        pbr.emissiveColor.set(emCol.r, emCol.g, emCol.b)
+        pbr.emissiveIntensity = Math.log(1 + appearance.EmissiveIntensity ?? 0)
+      }
+    }
   }
 }
 
