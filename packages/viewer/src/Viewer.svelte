@@ -55,6 +55,43 @@
     viewerEl.requestFullscreen()
   }
 
+  async function screenshot() {
+    if (!viewer) {
+      return
+    }
+    const data = await viewer.captureScreenshot()
+    const blob = await fetch(data).then((res) => res.blob())
+    const showSaveFilePicker = (window as any)['showSaveFilePicker'] as any
+    const handle = await showSaveFilePicker({
+      suggestedName: sessionStorage.getItem('downloadName') + '.png',
+    })
+    if (await verifyPermission(handle)) {
+      await writeFile(handle, blob)
+    }
+  }
+
+  async function writeFile(fileHandle: any, contents: Blob) {
+    const writable = await fileHandle.createWritable()
+    await writable.write(contents)
+    await writable.close()
+  }
+
+  async function verifyPermission(fileHandle: any) {
+    const options = {
+      mode: 'readwrite',
+    }
+    // Check if permission was already granted. If so, return true.
+    if ((await fileHandle.queryPermission(options)) === 'granted') {
+      return true
+    }
+    // Request permission. If the user grants permission, return true.
+    if ((await fileHandle.requestPermission(options)) === 'granted') {
+      return true
+    }
+    // The user didn't grant permission, so return false.
+    return false
+  }
+
   let isOpen = false
   let containerEl: HTMLElement
   let viewerEl: HTMLElement
@@ -82,7 +119,7 @@
     <div bind:this={viewerEl} class="absolute inset-0" />
     <div class="flex flex-col gap-2 w-[200px] absolute top-4 right-4" style="z-index: 100">
       <button type="button" class="btn btn-primary" on:click={fullscreen}> Fullscreen </button>
-      <!-- <button type="button" class="btn btn-primary" on:click={close}> Close </button> -->
+      <button type="button" class="btn btn-primary" on:click={screenshot}> Screenshot </button>
       {#if $showDye}
         <DyePicker bind:color={$dyeR} disabled={$dyeRDisabled} />
         <DyePicker bind:color={$dyeG} disabled={$dyeGDisabled} />

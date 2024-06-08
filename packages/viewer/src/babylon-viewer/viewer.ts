@@ -129,6 +129,12 @@ export function initViewer({ el, modelUrl, dyeR, dyeG, dyeB, dyeA, debugMask, ap
       navBar: null,
       loadingScreen: null,
     } as any,
+    camera: {
+      behaviors: {
+        autoRotate: false,
+        bouncing: false,
+      },
+    },
   })
   viewer.onSceneInitObservable.add((scene) => {
     viewerSetLightMode(viewer)
@@ -139,7 +145,7 @@ export function initViewer({ el, modelUrl, dyeR, dyeG, dyeB, dyeA, debugMask, ap
     return viewer
       .loadModel({
         url: modelUrl,
-        rotationOffsetAngle: 0,
+        rotationOffsetAngle: Math.PI,
       })
       .catch((err) => {
         console.error(err)
@@ -211,6 +217,13 @@ export function initViewer({ el, modelUrl, dyeR, dyeG, dyeB, dyeA, debugMask, ap
     dispose: () => {
       viewer.dispose()
       disposables.dispose()
+    },
+    captureScreenshot: async () => {
+      const engine = viewer.engine
+      const scene = viewer.sceneManager.scene
+      const camera = scene.activeCamera
+      return BABYLON.Tools.CreateScreenshotAsync(engine as any, camera as any, { width: 1200, precision: 1 })
+      //navigator.clipboard.write(new ClipboardItem({ 'image/png': result }))
     },
   }
 }
