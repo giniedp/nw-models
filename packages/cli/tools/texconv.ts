@@ -72,7 +72,6 @@ export async function texconv({
   args.push(input)
 
   await spawn(tool, args, {
-    stdio: logger.isVerbose ? 'inherit' : null,
-
+    stdio: logger.isVerbose ? 'pipe' : 'ignore',
   })
 }

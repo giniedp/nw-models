@@ -45,6 +45,6 @@ export async function pakExtractor({
     args.push(`-threads`, String(threads))
   }
   await spawn(tool, args, {
-    stdio: logger.isVerbose ? 'inherit' : null,
+    stdio: logger.isVerbose ? 'pipe' : 'ignore',
   })
 }

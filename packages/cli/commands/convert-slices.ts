@@ -5,7 +5,6 @@ import path from 'node:path'
 import { CONVERT_DIR, UNPACK_DIR } from '../env'
 import { objectStreamConverter } from '../tools/object-stream-converter'
 import { logger, wrapError } from '../utils'
-import { withProgressBar } from '../utils/progress'
 
 program
   .command('convert-slices')
@@ -19,14 +18,11 @@ program
     const inputDir = options.input
     const outputDir = options.output
 
-    await withProgressBar({ tasks: ['slices'] }, async (dir, i, log) => {
-      log(dir)
-      await objectStreamConverter({
-        input: path.join(inputDir, dir),
-        output: path.join(outputDir, dir),
-        pretty: true,
-        threads: Math.min(options.threads, 10),
-        stdio: null
-      })
+    await objectStreamConverter({
+      input: path.join(inputDir, 'slices'),
+      output: path.join(outputDir, 'slices'),
+      pretty: true,
+      threads: Math.min(options.threads, 10),
+      stdio: 'inherit',
     }).catch(wrapError('object-stream-converter failed'))
   })
