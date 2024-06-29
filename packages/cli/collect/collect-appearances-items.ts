@@ -2,7 +2,7 @@ import path from 'node:path'
 import { CharacterDefinition, getCDFSkinsOrCloth, readCDF, resolveCDFAsset } from '../file-formats/cdf'
 import { DEFAULT_MATERIAL } from '../file-formats/resolvers'
 import { ItemAppearanceDefinition, MeshAssetNode } from '../types'
-import { glob, logger, readJSONFile } from '../utils'
+import { logger } from '../utils'
 import { withProgressBar } from '../utils/progress'
 import { AssetCollector } from './collector'
 
@@ -13,11 +13,11 @@ export interface CollectItemsOptions {
 }
 
 export async function collectItemAppearances(collector: AssetCollector, options: CollectItemsOptions) {
-  const table = await glob([path.join(collector.tablesDir, 'javelindata_itemappearancedefinitions.json')])
-    .then((files) => {
-      return Promise.all(files.map((file) => readJSONFile<ItemAppearanceDefinition[]>(file)))
-    })
-    .then((results) => results.flat())
+  const table = await Promise.all(
+    ['javelindata_itemappearancedefinitions.json'].map((file) => {
+      return collector.readTable<ItemAppearanceDefinition[]>(file)
+    }),
+  ).then((results) => results.flat())
 
   // Skin1 and Material1 is the primary model/material pair for the appearance. All items have this.
   // Skin2 is filler geometry, adds a naked skin if the item is not fully covered

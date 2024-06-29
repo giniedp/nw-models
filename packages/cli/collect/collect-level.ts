@@ -14,13 +14,11 @@ export async function collectLevel(collector: AssetCollector, options: CollectLe
   const catalog = collector.catalog
   const inputDir = collector.inputDir
 
-  const levels = await glob(path.join(inputDir, 'levels', '*'), {
-    onlyDirectories: true,
-  }).then((files) => {
-    return files.map((file) => path.relative(inputDir, file))
+  const levels = await glob(path.join(inputDir, 'levels', '**', 'levelinfo.xml')).then((files) => {
+    return files.map((file) => path.dirname(path.relative(inputDir, file)).replace(/\\/g, '/'))
   })
   for (const levelDir of levels) {
-    if (!options.filter(path.basename(levelDir))) {
+    if (!options.filter(levelDir)) {
       continue
     }
     const level = await loadLevel({ inputDir, levelDir })

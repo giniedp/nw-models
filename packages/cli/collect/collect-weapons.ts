@@ -1,7 +1,6 @@
 import path from 'node:path'
-import { withProgressBar } from '../utils/progress'
 import { ItemdefinitionsWeapons } from '../types'
-import { readJSONFile } from '../utils'
+import { withProgressBar } from '../utils/progress'
 import { AssetCollector } from './collector'
 
 export interface CollectWeaponsOptions {
@@ -9,9 +8,13 @@ export interface CollectWeaponsOptions {
 }
 
 export async function collectWeapons(collector: AssetCollector, options: CollectWeaponsOptions) {
-  const table = await readJSONFile<ItemdefinitionsWeapons[]>(
-    path.join(collector.tablesDir, 'javelindata_itemdefinitions_weapons.json'),
-  )
+  const table = await Promise.all(
+    // prettier-ignore
+    [
+      'javelindata_itemdefinitions_weapons.json'
+    ].map((it) => collector.readTable<ItemdefinitionsWeapons>(it)),
+  ).then((it) => it.flat())
+
   await withProgressBar({ name: 'Scan Weapons', tasks: table }, async (item) => {
     if (options.filter && !options.filter(item)) {
       return

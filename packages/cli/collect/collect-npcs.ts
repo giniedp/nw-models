@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { resolveCDFAsset } from '../file-formats/cdf'
 import { Npc, NpcSchema } from '../types'
-import { logger, readJSONFile } from '../utils'
+import { logger } from '../utils'
 import { withProgressBar } from '../utils/progress'
 import { AssetCollector } from './collector'
 
@@ -15,9 +15,7 @@ export async function collectNpcs(collector: AssetCollector, options: CollectNpc
     [
       'javelindata_variations_npcs.json',
       'javelindata_variations_npcs_walkaway.json'
-    ].map((it) =>
-      readJSONFile(path.join(collector.tablesDir, it), NpcSchema),
-    ),
+    ].map((it) => collector.readTable(it, NpcSchema)),
   ).then((it) => it.flat())
 
   await withProgressBar({ name: 'Scan NPCs', tasks: table }, async (item) => {

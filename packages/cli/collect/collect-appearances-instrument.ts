@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { resolveCDFAsset } from '../file-formats/cdf'
 import { InstrumentAppearance } from '../types'
-import { logger, readJSONFile } from '../utils'
+import { logger } from '../utils'
 import { withProgressBar } from '../utils/progress'
 import { AssetCollector } from './collector'
 
@@ -12,11 +12,9 @@ export interface CollectInstrumentOptions {
 export async function collectInstrumentAppearances(collector: AssetCollector, options: CollectInstrumentOptions) {
   const table = await Promise.all(
     ['javelindata_itemdefinitions_instrumentsappearances.json'].map((file) => {
-      return readJSONFile<InstrumentAppearance[]>(path.join(collector.tablesDir, file))
+      return collector.readTable<InstrumentAppearance[]>(file)
     }),
-  ).then((results) => {
-    return results.flat()
-  })
+  ).then((results) => results.flat())
 
   await withProgressBar({ name: 'Scan Instruments', tasks: table }, async (item) => {
     if (options.filter && !options.filter(item)) {

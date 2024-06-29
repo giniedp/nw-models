@@ -1,8 +1,8 @@
 import path from 'node:path'
-import { withProgressBar } from '../utils/progress'
 import { resolveCDFAsset } from '../file-formats/cdf'
 import { CostumeChanges, CostumeChangesSchema } from '../types'
-import { logger, readJSONFile } from '../utils'
+import { logger } from '../utils'
+import { withProgressBar } from '../utils/progress'
 import { AssetCollector } from './collector'
 
 export interface CollectCostumeChangesOptions {
@@ -10,10 +10,11 @@ export interface CollectCostumeChangesOptions {
 }
 
 export async function collectCostumeChanges(collector: AssetCollector, options: CollectCostumeChangesOptions) {
-  const table = await readJSONFile(
-    path.join(collector.tablesDir, 'costumechanges', 'javelindata_costumechanges.json'),
-    CostumeChangesSchema,
-  )
+  const table = await Promise.all(
+    ['costumechanges/javelindata_costumechanges.json'].map((file) => {
+      return collector.readTable(file, CostumeChangesSchema)
+    }),
+  ).then((results) => results.flat())
 
   await withProgressBar({ name: 'Scan Costumes', tasks: table }, async (item) => {
     const modelFile = item.CostumeChangeMesh

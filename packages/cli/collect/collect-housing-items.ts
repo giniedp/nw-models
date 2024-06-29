@@ -15,7 +15,7 @@ export async function collectHousingItems(collector: AssetCollector, options: Co
     path.join(collector.tablesDir, 'javelindata_housingitems.json'),
     path.join(collector.tablesDir, 'mtx', '*_housingitems_mtx.json'),
   ])
-    .then((files) => Promise.all(files.map((file) => readJSONFile(file, HousingTableSchema))))
+    .then((files) => Promise.all(files.map((file) => collector.readTable(file, HousingTableSchema))))
     .then((tables) => tables.flat())
 
   await withProgressBar({ name: 'Scan Housing Items', tasks: table }, async (item) => {

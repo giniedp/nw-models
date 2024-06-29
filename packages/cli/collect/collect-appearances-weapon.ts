@@ -1,8 +1,8 @@
 import path from 'node:path'
-import { withProgressBar } from '../utils/progress'
 import { resolveCDFAsset } from '../file-formats/cdf'
 import { WeaponAppearanceDefinition } from '../types'
-import { logger, readJSONFile } from '../utils'
+import { logger } from '../utils'
+import { withProgressBar } from '../utils/progress'
 import { AssetCollector } from './collector'
 
 export interface CollectWeaponsOptions {
@@ -16,11 +16,10 @@ export async function collectWeaponAppearances(collector: AssetCollector, option
       'javelindata_itemdefinitions_weaponappearances.json',
       'javelindata_itemdefinitions_weaponappearances_mountattachments.json',
     ].map((file) => {
-      return readJSONFile<WeaponAppearanceDefinition[]>(path.join(collector.tablesDir, file))
+      return collector.readTable<WeaponAppearanceDefinition[]>(file)
     }),
-  ).then((results) => {
-    return results.flat()
-  })
+  ).then((results) => results.flat())
+
   await withProgressBar({ name: 'Scan Weapons', tasks: table }, async (item) => {
     if (options.filter && !options.filter(item)) {
       return

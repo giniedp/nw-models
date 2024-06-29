@@ -2,7 +2,7 @@ import path from 'node:path'
 import { adbActionsForTags, readAdbFile } from '../file-formats/adb'
 import { resolveCDFAsset } from '../file-formats/cdf'
 import { ModelAnimation, Mounts, MountsTableSchema } from '../types'
-import { logger, readJSONFile } from '../utils'
+import { logger } from '../utils'
 import { withProgressBar } from '../utils/progress'
 import { collectAnimations } from './collect-animations'
 import { AssetCollector } from './collector'
@@ -19,10 +19,12 @@ const ADB_MAP: Record<string, string> = {
 }
 
 export async function collectMounts(collector: AssetCollector, options: CollectMountsOptions) {
-  const table = await readJSONFile(
-    path.join(collector.tablesDir, 'mounts', 'javelindata_mounts.json'),
-    MountsTableSchema,
-  )
+  const table = await Promise.all(
+    ['mounts/javelindata_mounts.json'].map((file) => {
+      return collector.readTable(file, MountsTableSchema)
+    }),
+  ).then((results) => results.flat())
+
   await withProgressBar({ name: 'Scan Mounts', tasks: table }, async (item) => {
     const modelFile = item.Mesh
     if (!modelFile || path.extname(modelFile) !== '.cdf') {

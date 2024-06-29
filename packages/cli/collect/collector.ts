@@ -1,7 +1,10 @@
+import path from 'node:path'
 import { DEFAULT_MATERIAL, resolveCgfPath, resolveMtlFromCgf, resolveMtlPath } from '../file-formats/resolvers'
 import { MeshAssetNode, ModelAsset } from '../types'
 import { CaseInsensitiveMap } from '../utils/caseinsensitive-map'
+import { readJSONFile } from '../utils/file-utils'
 import { logger } from '../utils/logger'
+import { ZodSchema, z } from 'zod'
 
 export interface AssetCollectorOptions {
   inputDir: string
@@ -18,6 +21,7 @@ export interface AssetCollector {
   catalog: Record<string, string>
   collect: (asset: ModelAsset & { fallbackMaterial?: string }) => Promise<void>
   assets: () => ModelAsset[]
+  readTable: <T>(file: string, schema?: ZodSchema<T>) => Promise<T>
 }
 
 export function assetCollector({ inputDir, tablesDir, slicesDir, catalog, modelFormat }: AssetCollectorOptions) {
@@ -82,6 +86,19 @@ export function assetCollector({ inputDir, tablesDir, slicesDir, catalog, modelF
       outFile: outFile + '.' + modelFormat,
     })
   }
+
+  async function readTable<T>(file: string, schema?: ZodSchema<T>): Promise<T> {
+    const data: any = await readJSONFile(path.resolve(tablesDir, file))
+
+    if (Array.isArray(data)) {
+      return schema ? schema.parse(data) : data as T
+    }
+    if (data && 'rows' in data && Array.isArray(data.rows)) {
+      return schema ? schema.parse(data.rows) : data.rows
+    }
+    throw new Error(`invalid table format: ${file}`)
+  }
+
   return {
     inputDir,
     tablesDir,
@@ -89,5 +106,6 @@ export function assetCollector({ inputDir, tablesDir, slicesDir, catalog, modelF
     catalog,
     assets: () => Array.from(models.values()),
     collect: collect,
+    readTable,
   } satisfies AssetCollector
 }
