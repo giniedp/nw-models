@@ -1,5 +1,5 @@
 # ARCHIVE NOTE
-The tools of this have been ported to go and are now part of http://github.com/giniedp/nw-buddy repository
+The tools of this repo have been ported to go and are now part of http://github.com/giniedp/nw-buddy repository
 
 # New World Models
 
