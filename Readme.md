@@ -1,3 +1,6 @@
+# ARCHIVE NOTE
+The tools of this have been ported to go and are now part of http://github.com/giniedp/nw-buddy repository
+
 # New World Models
 
 This tool extracts and converts New World game models into a web-ready format (gltf, glb).
